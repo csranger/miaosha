@@ -1,6 +1,7 @@
 package com.csranger.miaosha.controller;
 
 import com.csranger.miaosha.model.User;
+import com.csranger.miaosha.redis.RedisService;
 import com.csranger.miaosha.result.CodeMsg;
 import com.csranger.miaosha.result.Result;
 import com.csranger.miaosha.service.UserService;
@@ -19,7 +20,10 @@ public class DemoCotroller {
     @Autowired
     private UserService userService;
 
-    // 输出结果封装测试
+    @Autowired
+    private RedisService redisService;
+
+    // 输出结果 Result 封装测试
     @RequestMapping(value = "/hello")
     @ResponseBody
     public Result<String> hello() {
@@ -55,5 +59,26 @@ public class DemoCotroller {
     public Result<Boolean> tx() {
         return Result.success(userService.tx());
     }
+
+    // 集成 redis 测试
+    @RequestMapping(value = "/redis/get")
+    @ResponseBody
+    public  Result<Long> redisGet() {
+        Long v1 = redisService.get("k1", Long.class);
+        return Result.success(v1);
+    }
+
+    @RequestMapping(value = "/redis/set")
+    @ResponseBody
+    public  Result<String> redisSet() {
+        // 键是"k2"，始终是String，值可以是任意类型T，为了存在redis中，将T转化成String，再存
+        Boolean ret = redisService.set("k2", "Hello, world!");
+        // 键是"k2"，从redis中取出值，并同时告诉get方法转换成什么类型，即存储前值的类型
+        String v2 = redisService.get("k2", String.class);
+        // 将获得的结果通过 Result 封装使用静态方法输出结果
+        return Result.success(v2);
+    }
+
+
 
 }

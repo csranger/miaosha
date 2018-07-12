@@ -11,18 +11,24 @@ public class Result<T> {
     // 成功时的数据，具体数据类型不清楚使用泛型
     private T data;
 
-    // 成功时调用;只需传入成功的信息
+
+
+
+    // 使用两个静态方法创建 Result 对象
+    // 成功时调用;只需传入 T data     成功的信息
     public static <T> Result<T> success(T data) {
         return new Result<T>(data);
     }
 
-    // 失败时调用;只需传入CodeMsg；CodeMsg 包括 code 和 msg
+    // 失败时调用;只需传入 CodeMsg    CodeMsg 包括 code 和 msg
     public static <T> Result<T> error(CodeMsg cm) {
         return new Result<T>(cm);
     }
 
 
-    // 构造器,使用上面两个方法获取对象，设为private
+
+
+    // 构造器,使用上面两个静态方法获取对象，设为private
     private Result(T data) {
         this.code = 0;
         this.msg = "success";
