@@ -75,7 +75,7 @@ CREATE TABLE `miaosha_user` (
     - 自定义验证器 @IsMobile 
     - 当前缺点：当参数校验不通过无法得知信息。使用全局异常拦截
 2. 全局异常处理器：拦截绑定异常，输出校验不通过的错误信息
-
+    - 处理绑定异常 GlobalExceptionHandler
 
 
 

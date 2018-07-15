@@ -7,6 +7,9 @@ import java.util.regex.Pattern;
 
 /**
  * 判断格式的工具类
+ * 1. 判断手机格式是否正确
+ * 2.
+ * 3.
  */
 public class ValidatorUtil {
 
