@@ -1,0 +1,121 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>登录</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+
+    <!--Thymeleaf 使用 @{} 引入静态文件，在 resources/static 路径下，html 使用 src 没有th: -->
+    <!-- jquery js-->
+    <script type="text/javascript" th:src="@{/js/jquery.min.js}"></script>
+    <!-- bootstrap css+js-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
+    <script type="text/javascript" th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
+    <!-- jquery-validator js -->
+    <script type="text/javascript" th:src="@{/jquery-validation/jquery.validate.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-validation/localization/messages_zh.min.js}"></script>
+    <!-- layer js -->
+    <script type="text/javascript" th:src="@{/layer/layer.js}"></script>
+    <!-- md5.js js -->
+    <script type="text/javascript" th:src="@{/js/md5.min.js}"></script>
+    <!-- common.js j -->
+    <script type="text/javascript" th:src="@{/js/common.js}"></script>
+
+</head>
+<body>
+
+<form name="loginForm" id="loginForm" method="post" style="width:50%; margin:0 auto">
+
+    <div class="form-group">
+        <h2 style="text-align:center; margin-bottom: 20px">用户登录</h2>      <!-- 第 1 行 -->
+    </div>
+
+    <div class="form-group">  <!-- class="form-group" 使用了 bootstrap 的 css-->
+        <div class="row">     <!-- 第 2 行 -->
+            <label class="form-label col-md-4">请输入手机号码</label>
+            <div class="col-md-5">
+                <input id="mobile" name="mobile" class="form-control" type="text" placeholder="手机号码"
+                       required="true" minlength="11" maxlength="11"/>
+                <!-- required minlength maxlength 3 个属性是由jquery-validate提供 -->
+            </div>
+            <div class="col-md-1">
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="row">      <!-- 第 3 行 -->
+            <label class="form-label col-md-4">请输入密码</label>
+            <div class="col-md-5">
+                <input id="password" name="password" class="form-control" type="password" placeholder="密码"
+                       required="true" minlength="6" maxlength="16"/>
+                <!-- required minlength maxlength 3 个属性是由jquery-validate提供 -->
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="row">          <!-- 第 4 行 -->
+            <div class="col-md-5">
+                <button class="btn btn-primary btn-block" type="reset" onclick="reset()">重置</button>
+            </div>
+            <div class="col-md-5">
+                <button class="btn btn-primary btn-block" type="submit" onclick="login()">登录</button>
+            </div>
+        </div>
+    </div>
+
+</form>
+
+</body>
+
+<!-- 登录功能，点击登陆按钮触发的事件，主要是为了验证-->
+
+<script>
+    // 1. 参数校验
+    function login() {
+    // 2. 验证通过则执行 doLogin
+        $("#loginForm").validate({
+            submitHandler: function (form) {
+                doLogin();
+            }
+        });
+    }
+
+    // 3. ajax post 表单提交; 注意 form 里并没有指定 action
+    function doLogin() {
+        // 3.1 展示 loading 框; common.js 里编写的方法
+        g_showLoading();
+
+        var inputPass = $("#password").val();     // 表单填写的密码
+        var salt = g_passsword_salt;
+        var str = ""+salt.charAt(0)+salt.charAt(2) + inputPass +salt.charAt(5) + salt.charAt(4);
+        // md5 方法来自 md5 js
+        var password = md5(str);                  // 通过固定盐值加密后的密码   输入真实的密码 + 固定salt -> 表单加密密码
+        // 3.2 传给 do_login 页面两个数据：手机号 + 使用固定盐值通过 md5 加密一次的密码发送到服务端 由 LoginUser 对象接收
+        $.ajax({
+            url: "/login/do_login",
+            type: "POST",
+            data: {
+                mobile: $("#mobile").val(),
+                password: password
+            },
+            // 3.2.1 传给 do_login 页面的数据成功的话触发操作
+            // 参数 data 指的是服务端返回的结果
+            success: function (data) {
+                layer.closeAll();
+                console.log(data);
+                if (data.code == 0) {
+                    layer.msg("成功");
+                    window.location.href = "/goods/to_list";
+                } else {
+                    layer.msg(data.msg);
+                }
+            },
+            // 3.2.2 传给 do_login 页面的数据失败的话触发操作：
+            error: function () {
+                layer.closeAll();  // 将全部框关闭
+            }
+        });
+    }
+</script>
+</html>

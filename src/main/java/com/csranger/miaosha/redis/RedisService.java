@@ -16,18 +16,23 @@ public class RedisService {
     @Autowired
     JedisPool jedisPool;
 
+
+
+
     /**
-     * 1。从 redis 服务器中获取
+     * 1。从 redis 服务器中获取对象，例如User对象，键可以是id，name等
      * @param key
      * @param clazz
      * @param <T>
      * @return
      */
-    public <T> T get(String key, Class<T> clazz) {
+    public <T> T get(KeyPrefix prefix, String key, Class<T> clazz) {
         Jedis jedis = null;
         try {
             jedis = jedisPool.getResource();
-            String str = jedis.get(key);
+            // realKey
+            String realKey = prefix + key;
+            String str = jedis.get(realKey);
             T t = stringToBean(str, clazz);
             return t;
         } finally {
@@ -65,7 +70,7 @@ public class RedisService {
      * @param <T>
      * @return
      */
-    public <T> boolean set(String key, T value) {
+    public <T> boolean set(KeyPrefix prefix, String key, T value) {
         Jedis jedis = null;
         try {
             jedis = jedisPool.getResource();
@@ -73,7 +78,14 @@ public class RedisService {
             if (str == null || str.length() <= 0) {
                 return false;
             }
-            jedis.set(key, str);
+            // realKey
+            String realKey = prefix.getPrefix() + key;
+            int seconds = prefix.expireSeconds();   // 过期时间
+            if (seconds <= 0) {    // 意味着永不过期
+                jedis.set(realKey, str);
+            } else {                // 设置了过期时间，存在redis时使用setex方法也传递一个过期时间
+                jedis.setex(realKey, seconds, str);
+            }
             return true;
         } finally {
             returnToPool(jedis);
@@ -105,10 +117,70 @@ public class RedisService {
 
 
 
-    //
+    // 两个方法的工具方法，释放 Jedis 到 JedisPool
     private void returnToPool(Jedis jedis) {
         if (jedis != null) {
             jedis.close();     // 返回到连接池中
+        }
+    }
+
+    /**
+     * 3. 判断一个 key 是否存在于 redis 中
+     * @param prefix
+     * @param key
+     * @param <T>
+     * @return
+     */
+    public <T> boolean exists(KeyPrefix prefix, String key) {
+        Jedis jedis = null;
+        try {
+            jedis = jedisPool.getResource();
+            // realKey
+            String realKey = prefix.getPrefix() + key;
+            return jedis.exists(realKey);
+        } finally {
+            returnToPool(jedis);
+        }
+    }
+
+
+    /**
+     * 4. increase
+     * @param prefix
+     * @param key
+     * @param <T>
+     * @return
+     */
+    public <T> Long incr(KeyPrefix prefix, String key) {
+        Jedis jedis = null;
+        try {
+            jedis = jedisPool.getResource();
+            // realKey
+            String realKey = prefix.getPrefix() + key;
+            return jedis.incr(realKey);
+        } finally {
+            returnToPool(jedis);
+        }
+    }
+
+
+
+    /**
+     * 5. decrease
+     * @param prefix
+     * @param key
+     * @param <T>
+     * @return
+     */
+    public <T> Long decr(KeyPrefix prefix, String key) {
+        Jedis jedis = null;
+        try {
+            jedis = jedisPool.getResource();
+            // realKey
+            String realKey = prefix.getPrefix() + key;
+            return jedis.decr(realKey);
+        } finally {
+            returnToPool(jedis);
         }
     }
 

@@ -2,16 +2,14 @@ package com.csranger.miaosha.controller;
 
 import com.csranger.miaosha.model.User;
 import com.csranger.miaosha.redis.RedisService;
+import com.csranger.miaosha.redis.UserKey;
 import com.csranger.miaosha.result.CodeMsg;
 import com.csranger.miaosha.result.Result;
 import com.csranger.miaosha.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Controller
 @RequestMapping(value = "/demo")
@@ -60,23 +58,36 @@ public class DemoCotroller {
         return Result.success(userService.tx());
     }
 
-    // 集成 redis 测试
-    @RequestMapping(value = "/redis/get")
-    @ResponseBody
-    public  Result<Long> redisGet() {
-        Long v1 = redisService.get("k1", Long.class);
-        return Result.success(v1);
-    }
+//    // 集成 redis 测试
+//    @RequestMapping(value = "/redis/get")
+//    @ResponseBody
+//    public  Result<Long> redisGet() {
+//        Long v1 = redisService.get("k1", Long.class);
+//        return Result.success(v1);
+//    }
+//
+//    @RequestMapping(value = "/redis/set")
+//    @ResponseBody
+//    public  Result<String> redisSet() {
+//        // 键是"k2"，始终是String，值可以是任意类型T，为了存在redis中，将T转化成String，再存
+//        Boolean ret = redisService.set("k2", "Hello, world!");
+//        // 键是"k2"，从redis中取出值，并同时告诉get方法转换成什么类型，即存储前值的类型
+//        String v2 = redisService.get("k2", String.class);
+//        // 将获得的结果通过 Result 封装使用静态方法输出结果
+//        return Result.success(v2);
+//    }
 
-    @RequestMapping(value = "/redis/set")
+    // redis + 结合前缀
+    @GetMapping(value = "/redis/setuser")
     @ResponseBody
-    public  Result<String> redisSet() {
-        // 键是"k2"，始终是String，值可以是任意类型T，为了存在redis中，将T转化成String，再存
-        Boolean ret = redisService.set("k2", "Hello, world!");
-        // 键是"k2"，从redis中取出值，并同时告诉get方法转换成什么类型，即存储前值的类型
-        String v2 = redisService.get("k2", String.class);
-        // 将获得的结果通过 Result 封装使用静态方法输出结果
-        return Result.success(v2);
+    public Result<Boolean> redisSet() {
+        // 创建一个User对象
+        User user = new User();
+        user.setId(1);
+        user.setName("1111");
+        // 将 键-值 存入 redis 中，参数：前缀，键，值
+        redisService.set(UserKey.getById, "" + 1, user);
+        return Result.success(true);
     }
 
 
