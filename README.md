@@ -67,7 +67,18 @@ CREATE TABLE `miaosha_user` (
     - login.html 
 3. dao service controller 开发
 4. LoginController 中需要进行参数校验：密码是否为空，手机号是否符合格式 之类的检查。这很麻烦，改进就是使用JSR303 参数检验
-### JSR303 参数检验
+
+### Js303参数校验+全局异常处理
+1. 想要验证LoginVO里的两个参数
+    - 在doLogin(@Valid LoginVO loginVO) 加上 @Valid 注解
+    - 在 LoginVO 需要验证的属性上加上 验证器 @NotNull  @Length(min=32)
+    - 自定义验证器 @IsMobile 
+    - 当前缺点：当参数校验不通过无法得知信息。使用全局异常拦截
+2. 全局异常处理器：拦截绑定异常，输出校验不通过的错误信息
+
+
+
+
 
 
 

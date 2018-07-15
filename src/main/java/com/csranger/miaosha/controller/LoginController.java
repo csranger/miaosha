@@ -15,6 +15,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.validation.Valid;
+
 @Controller
 @RequestMapping(value = "/login")
 public class LoginController {
@@ -39,21 +41,22 @@ public class LoginController {
 
     @RequestMapping(value = "/do_login")
     @ResponseBody
-    public Result<Boolean> doLogin(LoginVO loginVO) {
+    public Result<Boolean> doLogin(@Valid LoginVO loginVO) {
         // password 123456 时输出日志为 LoginVO{mobile='12345678909', password='d3b1294a61a07da9b49b6e22b2cbd7f9'}
         log.info(loginVO.toString());
         // 1. 参数校验：密码是否为空，手机号是否符合格式 之类的检查
-        String passInput = loginVO.getPassword();
-        String mobile = loginVO.getMobile();
-        if (StringUtils.isBlank(passInput)) {
-            return Result.error(CodeMsg.PASSWORD_EMPTY);
-        }
-        if (StringUtils.isBlank(mobile)) {
-            return Result.error(CodeMsg.MOBILE_EMPTY);
-        }
-        if (!ValidatorUtil.isMobile(mobile)) {
-            return Result.error(CodeMsg.MOBILE_ERROR);
-        }
+        // 使用 JSR303 参数校验框架
+//        String passInput = loginVO.getPassword();
+//        String mobile = loginVO.getMobile();
+//        if (StringUtils.isBlank(passInput)) {
+//            return Result.error(CodeMsg.PASSWORD_EMPTY);
+//        }
+//        if (StringUtils.isBlank(mobile)) {
+//            return Result.error(CodeMsg.MOBILE_EMPTY);
+//        }
+//        if (!ValidatorUtil.isMobile(mobile)) {
+//            return Result.error(CodeMsg.MOBILE_ERROR);
+//        }
         // 2. 登陆:判断手机号对应的账号是否存在于数据库，如果存在密码是否可以匹配上
 
         CodeMsg cm = miaoshaUserService.login(loginVO);
