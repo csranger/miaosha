@@ -88,8 +88,29 @@ CREATE TABLE `miaosha_user` (
     就根据这个tocken取到用户对应的 sesession 信息 ] 后面步骤浏览器来做
 3. 服务器给用户设定了 cookie 之后，客户端在随后的访问当中都带有这个值，使用 @CookieValue(value="token") 注解获取到这个值
 4. 获取到 token 后从 redis 缓存中取出 user 放入modelMap，传给 /goods/to_list 模版页面
-5. 新的问题：session 的有效期应该是最后结束访问的时间 + 过期时间
+5. 问题1：session 的有效期应该是从最后结束访问的时间开始算：这就要求每打开一个新的页面在从 redis 根据 token 获取到 user 信息
+   时重新 addCookie 下，即给这个用户重新生成一个 token 来标识这个用户, 将 token-user 缓存到 redis -> 写到 cookie 当中传递给客户端
+6. 问题2：每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息，这就很麻烦,以下就是一个例子
 
+    ```
+        @RequestMapping(value = "/to_list")
+        public String list(HttpServletResponse response, ModelMap modelMap,
+                             @CookieValue(value = MiaoshaUserService.COOKIE_NAME_TOKEN, required = false) String cookieToken,
+                             @RequestParam(value = MiaoshaUserService.COOKIE_NAME_TOKEN, required = false) String paramToken
+        ) {
+            if (StringUtils.isBlank(cookieToken) && StringUtils.isBlank(paramToken)) {
+                return "login";
+            }
+            // 获取 cookie 中 token
+            String token = StringUtils.isBlank(paramToken) ? cookieToken : paramToken;
+            // 利用 token 从 redis 拿出 MiaoshaUser 信息
+            MiaoshaUser miaoshaUser = miaoshaUserService.getByToken(response, token);
+    
+            modelMap.put("user", miaoshaUser);
+            return "goods_list";
+        }
+    ```
+7. 问题2解决方法：
 
 
 
