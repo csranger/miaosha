@@ -1,8 +1,11 @@
 package com.csranger.miaosha.redis;
 
+/**
+ * 只有两个属性 prefix(前缀，代表模块)  expireSeconds(存储在 redis 中的过期时间)
+ */
 public abstract class BasePrefix implements KeyPrefix {
 
-    private int expireSeconds;    // 过期时间
+    private int expireSeconds;    // redis 存储有效期，在MiaoshaService里让其等于 cookie 有限期
 
     private String prefix;
 
@@ -21,6 +24,7 @@ public abstract class BasePrefix implements KeyPrefix {
 
 
 
+    // 获取两个属性的值的方法
     @Override
     public int expireSeconds() {    // 默认0，代表永不过期
         return expireSeconds;

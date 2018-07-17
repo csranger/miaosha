@@ -21,17 +21,13 @@ public class RedisService {
 
     /**
      * 1。从 redis 服务器中获取对象，例如User对象，键可以是id，name等
-     * @param key
-     * @param clazz
-     * @param <T>
-     * @return
      */
     public <T> T get(KeyPrefix prefix, String key, Class<T> clazz) {
         Jedis jedis = null;
         try {
             jedis = jedisPool.getResource();
             // realKey
-            String realKey = prefix + key;
+            String realKey = prefix.getPrefix() + key;
             String str = jedis.get(realKey);
             T t = stringToBean(str, clazz);
             return t;
@@ -43,8 +39,6 @@ public class RedisService {
 
     /**
      * 将字符串转化成一个 Bean 对象
-     * @param s
-     * @return
      */
     public <T> T stringToBean(String s, Class<T> clazz) {
         if (s == null || s.length() <= 0 || clazz == null) {
@@ -65,10 +59,6 @@ public class RedisService {
 
     /**
      * 2。使用 fastjson 将一个 Bean 对象转化成 String 写入到 redis 中
-     * @param key
-     * @param value
-     * @param <T>
-     * @return
      */
     public <T> boolean set(KeyPrefix prefix, String key, T value) {
         Jedis jedis = null;
@@ -83,7 +73,7 @@ public class RedisService {
             int seconds = prefix.expireSeconds();   // 过期时间
             if (seconds <= 0) {    // 意味着永不过期
                 jedis.set(realKey, str);
-            } else {                // 设置了过期时间，存在redis时使用setex方法也传递一个过期时间
+            } else {                // 设置了过期时间，存在redis时使用 setex 方法也传递一个过期时间
                 jedis.setex(realKey, seconds, str);
             }
             return true;
@@ -95,9 +85,6 @@ public class RedisService {
 
     /**
      * 将任意类型转化成字符串
-     * @param value
-     * @param <T>
-     * @return
      */
     private <T> String beanToString(T value) {
         if (value == null) {
@@ -110,7 +97,7 @@ public class RedisService {
             return (String) value;
         } else if (clazz == long.class || clazz == Long.class) {
             return "" + value;
-        } else {    // 其他类型认为它是一个 Bean，利用 fastjson 转换成 String
+        } else {    // 其他类型认为它是一个 Bean，利用 fastjson 转换成 String：例如 MiaoshaUser 对象
             return JSON.toJSONString(value);
         }
     }
@@ -126,10 +113,6 @@ public class RedisService {
 
     /**
      * 3. 判断一个 key 是否存在于 redis 中
-     * @param prefix
-     * @param key
-     * @param <T>
-     * @return
      */
     public <T> boolean exists(KeyPrefix prefix, String key) {
         Jedis jedis = null;
@@ -146,10 +129,6 @@ public class RedisService {
 
     /**
      * 4. increase
-     * @param prefix
-     * @param key
-     * @param <T>
-     * @return
      */
     public <T> Long incr(KeyPrefix prefix, String key) {
         Jedis jedis = null;
@@ -167,10 +146,6 @@ public class RedisService {
 
     /**
      * 5. decrease
-     * @param prefix
-     * @param key
-     * @param <T>
-     * @return
      */
     public <T> Long decr(KeyPrefix prefix, String key) {
         Jedis jedis = null;

@@ -15,7 +15,7 @@ public class LoginVO {
     private String mobile;
 
     @NotNull
-    @Length(min=32)
+    @Length(min=32)   // 这里密码最小32，是因为表单密码经md5会变成32位的数字
     private String password;
 
     // setter getter

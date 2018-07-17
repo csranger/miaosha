@@ -35,6 +35,8 @@ public class MD5Util {
     public static void main(String[] args) {
         System.out.println(inputPassToFormPass("123456"));
         // 打印 d3b1294a61a07da9b49b6e22b2cbd7f9 这个结果和经过登陆经过 md5 js 加密后传递到后台的结果一样
+        System.out.println(encryPassword("123456", "1a2b3c4d"));
+        // 如果第二次加密的 randomSalt = 1a2b3c4d 则结果 b7797cce01b4b131b433b6acf4add449
     }
 
 }

@@ -7,6 +7,9 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.springframework.stereotype.Repository;
 
+/**
+ * User UserDao UserService DemoController 用于测试集成 Thymeleaf mybatis redis
+ */
 @Repository
 @Mapper
 public interface UserDao {

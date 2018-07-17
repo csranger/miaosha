@@ -15,6 +15,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
 @Controller
@@ -22,12 +23,6 @@ import javax.validation.Valid;
 public class LoginController {
 
     private static Logger log = LoggerFactory.getLogger(LoginController.class);
-
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private RedisService redisService;
 
     @Autowired
     private MiaoshaUserService miaoshaUserService;
@@ -39,13 +34,16 @@ public class LoginController {
         return "login";
     }
 
+
+
+    // 测试时 使用12345678909 123456 登录测试 mysql 保存的两次 md5 密码是 b7797cce01b4b131b433b6acf4add449
     @RequestMapping(value = "/do_login")
     @ResponseBody
-    public Result<Boolean> doLogin(@Valid LoginVO loginVO) {
+    public Result<Boolean> doLogin(HttpServletResponse response, @Valid LoginVO loginVO) {
         // password 123456 时输出日志为 LoginVO{mobile='12345678909', password='d3b1294a61a07da9b49b6e22b2cbd7f9'}
         log.info(loginVO.toString());
         // 1. 参数校验：密码是否为空，手机号是否符合格式 之类的检查
-        // 使用 JSR303 参数校验框架
+        // 使用 JSR303 参数校验框架，参数校验产生异常会被异常处理器获取处理返回。所以如果这里还能执行说明无异常，登陆成功
 //        String passInput = loginVO.getPassword();
 //        String mobile = loginVO.getMobile();
 //        if (StringUtils.isBlank(passInput)) {
@@ -58,13 +56,8 @@ public class LoginController {
 //            return Result.error(CodeMsg.MOBILE_ERROR);
 //        }
         // 2. 登陆:判断手机号对应的账号是否存在于数据库，如果存在密码是否可以匹配上
-
-        CodeMsg cm = miaoshaUserService.login(loginVO);
-        if (cm.getCode() == 0) {
-            return Result.success(true);
-        } else {
-            return Result.error(cm);
-        }
+        miaoshaUserService.login(response, loginVO);    // 登陆不成功会抛出异常从而处理
+        return Result.success(true);
     }
 
 }

@@ -11,6 +11,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * User UserDao UserService DemoController 用于测试集成 Thymeleaf mybatis redis
+ */
 @Controller
 @RequestMapping(value = "/demo")
 public class DemoCotroller {

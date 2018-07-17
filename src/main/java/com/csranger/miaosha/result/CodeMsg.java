@@ -60,4 +60,14 @@ public class CodeMsg {
         return msg;
     }
 
+    // toString
+
+
+    @Override
+    public String toString() {
+        return "CodeMsg{" +
+                "code=" + code +
+                ", msg='" + msg + '\'' +
+                '}';
+    }
 }

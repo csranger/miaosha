@@ -52,7 +52,7 @@ CREATE TABLE `miaosha_user` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 ```
-### 明文密码两次入库
+### 明文密码两次md5处理
 - 引入 MD5 工具类依赖并编写两次 md5 加密方法 MD5Util
 
 ### 实现登录功能
@@ -74,8 +74,21 @@ CREATE TABLE `miaosha_user` (
     - 在 LoginVO 需要验证的属性上加上 验证器 @NotNull  @Length(min=32)
     - 自定义验证器 @IsMobile 
     - 当前缺点：当参数校验不通过无法得知信息。使用全局异常拦截
-2. 全局异常处理器：拦截绑定异常，输出校验不通过的错误信息
+2. 拦截绑定异常，输出校验不通过的错误信息
     - 处理绑定异常 GlobalExceptionHandler
+3. 注意到 MiaoshaUserService login 方法返回的是 CodeMsg 类型
+    - 这不合适，该用全局异常/业务异常 GlobalException
+    - 同时需要在统一异常处理器进行处理
+    
+### 分布式 Session
+1. 出现场景：实际应用会有分布式多台应用服务器，如果用户第一个请求落到了第一个服务器上，而第二个请求没有落到这个服务器上，会造成用户session信息丢失
+2. 实现 session 功能:服务端将 token 写到 cookie 中，客户端在随后的访问中携带这个 cookie
+    - 登陆成功之后，给这个用户生成一个类似于 sessionId 的变量 token 来标识这个用户 -> 写到
+    cookie 当中传递给客户端 -> [ 客户端在随后的访问当中都在 cookie 上传这个 token -> 服务端拿到这个 token 之后
+    就根据这个tocken取到用户对应的 sesession 信息 ] 后面步骤浏览器来做
+3. 服务器给用户设定了 cookie 之后，客户端在随后的访问当中都带有这个值，使用 @CookieValue(value="token") 注解获取到这个值
+4. 获取到 token 后从 redis 缓存中取出 user 放入modelMap，传给 /goods/to_list 模版页面
+5. 新的问题：session 的有效期应该是最后结束访问的时间 + 过期时间
 
 
 

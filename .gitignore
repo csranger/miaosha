@@ -25,4 +25,4 @@
 /.nb-gradle/
 
 # 先关闭git监控文件变化，不然电脑卡的不行，git commit/push 时再注释掉
-#/*
+# /*

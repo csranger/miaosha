@@ -100,7 +100,7 @@
                 password: password
             },
             // 3.2.1 传给 do_login 页面的数据成功的话触发操作
-            // 参数 data 指的是服务端返回的结果
+            // 参数 data 指的是服务端返回的结果 doLogin 登陆成功会返回 Result.success(true);
             success: function (data) {
                 layer.closeAll();
                 console.log(data);
