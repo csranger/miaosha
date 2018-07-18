@@ -38,7 +38,7 @@
 
 ## 2. 登录功能
 ### 2.1 数据库设计
-- 生成数据库
+- 生成数据库表 - miaosha_user 
 ```
 CREATE TABLE `miaosha_user` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户id，手机号码',
@@ -113,7 +113,18 @@ CREATE TABLE `miaosha_user` (
 7. 问题2解决方法：将`每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息`这部分操作移到
    UserArgumentResolver 中，这就意味着不用每个请求页面都写一遍获取 cookie 中 token 获取用户信息这些代码了
    
-## 3. 秒杀功能
+## 3. 实现秒杀功能
+### 3.1  数据库设计
+1. 商品表
+
+2. 订单表
+3. 秒杀商品表
+    - 为什么不再商品表添加一个代表是否是秒杀商品的字段？
+    - 方便维护，一段时间某个商品参加秒杀活动，一段时间不参加，会使得需要频繁修改。这样可以让`商品表`相对比较稳定
+4. 秒杀订单表
+
+### 3.2 商品列表页 -> 商品详情页 -> 订单详情页
+
 
 
 

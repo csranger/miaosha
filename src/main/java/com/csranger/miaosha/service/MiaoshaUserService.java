@@ -63,7 +63,8 @@ public class MiaoshaUserService {
         // 生成 cookie/实现 session 功能：登陆成功之后，给这个用户生成一个类似于 sessionId 的变量 token 来标识这个用户 -> 写到
         // cookie 当中传递给客户端 -> [ 客户端在随后的访问当中都在 cookie 上传这个 token -> 服务端拿到这个 token 之后
         // 就根据这个 token 取到用户对应的 sesession 信息 ] 后面步骤浏览器来做
-        addCookie(response, miaoshaUser);
+        String token = UUIDUtil.uuid();     // 用户登录后将此用户 token 记住不需要没打开一个页面都生成一个新的 token
+        addCookie(response, token,  miaoshaUser);
         logger.info("生成 token 放入 cookie，写到 response 中发送给客户端");
 
         return true;
@@ -74,9 +75,8 @@ public class MiaoshaUserService {
     /**
      * 登陆成功之后，给这个用户生成一个 token 来标识这个用户, 将 token-user 缓存到 redis -> 写到 cookie 当中传递给客户端
      */
-    private void addCookie(HttpServletResponse response, MiaoshaUser miaoshaUser) {
-        // 1 生成 token，标识用户，token-user 写到 redis 缓存中，前缀已经设定了存储到 redis 中的过期时间
-        String token = UUIDUtil.uuid();
+    private void addCookie(HttpServletResponse response, String token, MiaoshaUser miaoshaUser) {
+        // 1 将 token-user 再次写到 redis 缓存中，前缀已经设定了存储到 redis 中的过期时间：相当于刷新了 过期时间
         redisService.set(MiaoshaUserKey.token, token, miaoshaUser);
 
         // 2 token 放入 cookie
@@ -100,7 +100,7 @@ public class MiaoshaUserService {
         MiaoshaUser miaoshaUser = redisService.get(MiaoshaUserKey.token, token, MiaoshaUser.class);
         // 从现在开始算过期时间
         if (miaoshaUser != null) {
-            addCookie(response, miaoshaUser);
+            addCookie(response, token, miaoshaUser);
         }
         return miaoshaUser;
 
