@@ -51,20 +51,14 @@ public class GoodsController {
 //        return "goods_list";
 //    }
 
-
-
-
-
-
-
-    /**
-     * 商品详情页
-     */
-    @RequestMapping(value = "/to_detail")
-    public String detail() {
-
-
-
-        return null;
+    //    ！！！！每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息，这就很麻烦！！！！
+    @RequestMapping(value = "/to_list")
+    public String list(ModelMap modelMap, MiaoshaUser miaoshaUser) {
+        // 每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息 这部分工作放到了 UserArgumentResolver 里面
+        // 这里可以像 ModelMap 一样直接在 Controller 里添加 MiaoshaUser 对象
+        modelMap.put("user", miaoshaUser);
+        return "goods_list";
     }
+
+
 }

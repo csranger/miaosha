@@ -1,15 +1,15 @@
-## 项目环境搭建
-### 输出结果封装
+## 1. 项目环境搭建
+### 1.1 输出结果封装
 - 输出结果使用Result.java类封装，为了是代码优雅使用类CodeMsg进一步封装各种异常
 
-### 集成 Thymeleaf
+### 1.2 集成 Thymeleaf
 - pom依赖 + 配置 + 测试页面
 
-### 集成Mybatis与Druid
+### 1.3 集成Mybatis与Druid
 - pom依赖 + 配置 + 测试页面
 - 数据库事务：已有id为1的记录，先插入id为2的记录和id为1的记录，因为id不可重复，测试代码是否全部回滚
 
-### 集成redis缓存系统
+### 1.4 集成redis缓存系统
 1. 安装redis
     - redis启动时需要制定配置文件redis.conf，不指定会使用默认的配置文件
     - 修改redis配置文件：
@@ -36,8 +36,8 @@
     ```
 5. 多人开发可能会使得redis中的key会相互重复问题：让不同的模块下的 key 具有不同的前缀
 
-## 登录功能
-### 数据库设计
+## 2. 登录功能
+### 2.1 数据库设计
 - 生成数据库
 ```
 CREATE TABLE `miaosha_user` (
@@ -52,10 +52,10 @@ CREATE TABLE `miaosha_user` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 ```
-### 明文密码两次md5处理
+### 2.2 明文密码两次md5处理
 - 引入 MD5 工具类依赖并编写两次 md5 加密方法 MD5Util
 
-### 实现登录功能
+### 2.3 实现登录功能
 1. 静态文件 static/ 路径
     - bootstrap 画页面
     - jquery-validation 表单验证
@@ -68,7 +68,7 @@ CREATE TABLE `miaosha_user` (
 3. dao service controller 开发
 4. LoginController 中需要进行参数校验：密码是否为空，手机号是否符合格式 之类的检查。这很麻烦，改进就是使用JSR303 参数检验
 
-### Js303参数校验+全局异常处理
+### 2.4 Js303参数校验+全局异常处理
 1. 想要验证LoginVO里的两个参数
     - 在doLogin(@Valid LoginVO loginVO) 加上 @Valid 注解
     - 在 LoginVO 需要验证的属性上加上 验证器 @NotNull  @Length(min=32)
@@ -80,7 +80,7 @@ CREATE TABLE `miaosha_user` (
     - 这不合适，该用全局异常/业务异常 GlobalException
     - 同时需要在统一异常处理器进行处理
     
-### 分布式 Session
+### 2.5 分布式 Session
 1. 出现场景：实际应用会有分布式多台应用服务器，如果用户第一个请求落到了第一个服务器上，而第二个请求没有落到这个服务器上，会造成用户session信息丢失
 2. 实现 session 功能:服务端将 token 写到 cookie 中，客户端在随后的访问中携带这个 cookie
     - 登陆成功之后，给这个用户生成一个类似于 sessionId 的变量 token 来标识这个用户 -> 写到
@@ -110,7 +110,10 @@ CREATE TABLE `miaosha_user` (
             return "goods_list";
         }
     ```
-7. 问题2解决方法：
+7. 问题2解决方法：将`每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息`这部分操作移到
+   UserArgumentResolver 中，这就意味着不用每个请求页面都写一遍获取 cookie 中 token 获取用户信息这些代码了
+   
+## 3. 秒杀功能
 
 
 

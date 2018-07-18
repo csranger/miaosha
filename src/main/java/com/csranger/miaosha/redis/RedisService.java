@@ -8,7 +8,7 @@ import redis.clients.jedis.JedisPool;
 
 /**
  * 此配置文件最终目的是希望生成 Jedis 的 bean，提供 redis 服务例如： jedis.set("foo", ""bar) String value = jedis.get("foo")
- * 2。接着在 get put 方法内使用 JedisPool 生成 Jedis Bean，通过 jedis 对象就可以进行 set get 了
+ * 接着在 get put 方法内使用 JedisPool 生成 Jedis Bean，通过 jedis 对象就可以进行 set get 了
  */
 @Service
 public class RedisService {
