@@ -1,3 +1,19 @@
+# 一、核心技术栈
+1. spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter
+2. 两次 md5 入库
+3. jsr303 参数校验
+4. 全局异常处理：@ControllerAdvice + @ExceptionHandler
+5. 分布式 session (redis 实现)
+
+
+# 二、如何使用
+1. 新建 miaosha 数据库与数据表并修改 application.properties 中的数据库密码
+2. 配置好 redis 并启动 redis-server /usr/local/etc/redis.conf 和 mysql
+3. 运行 MiaoshaApplication 浏览器输入 127.0.0.1:8080/login/to_login 进行登录
+
+
+
+# 三、开发过程
 ## 1. 项目环境搭建
 ### 1.1 输出结果封装
 - 输出结果使用Result.java类封装，为了是代码优雅使用类CodeMsg进一步封装各种异常
@@ -115,15 +131,68 @@ CREATE TABLE `miaosha_user` (
    
 ## 3. 实现秒杀功能
 ### 3.1  数据库设计
-1. 商品表
-
-2. 订单表
-3. 秒杀商品表
+1. 商品表  goods
+    - 单纯的商品信息，不包含一些是否是秒杀商品这种字段
+    ```
+    CREATE TABLE `goods` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '商品id',
+      `goods_name` varchar(16) DEFAULT NULL COMMENT '商品名称',
+      `goods_title` varchar(64) DEFAULT NULL COMMENT '商品的标题',
+      `goods_img` varchar(64) DEFAULT NULL COMMENT '商品的图片',
+      `goods_detail` longtext COMMENT '商品详情介绍',
+      `goods_price` decimal(10,2) DEFAULT '0.00' COMMENT '商品单价',
+      `goods_stock` int(11) DEFAULT '0' COMMENT '库存商品, -1 表示无限制',
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='商品表';
+    ```
+2. 订单表   order_info
+    ```
+    CREATE TABLE `order_info` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_id` bigint(20) DEFAULT NULL COMMENT '用户id',
+      `goods_id` bigint(20) DEFAULT NULL COMMENT '商品id',
+      `delivery_addr_id` bigint(20) DEFAULT NULL COMMENT '收货地址',
+      `goods_name` varchar(16) DEFAULT NULL COMMENT '冗余过来的商品商品名称',     // 就可以之间单表查询
+      `goods_count` int(11) DEFAULT '0' COMMENT '商品数量',
+      `goods_price` decimal(10,2) DEFAULT NULL COMMENT '商品单价',
+      `order_channel` tinyint(4) DEFAULT NULL COMMENT '1-pc 2-android 3-ios',
+      `status` tinyint(4) DEFAULT '0' COMMENT '0-新建未支付 1-已支付 2-已发货 3-已收获 4-已退款 5-已完成',
+      `create_date` datetime DEFAULT NULL COMMENT '订单创建时间',
+      `pay_day` datetime DEFAULT NULL COMMENT '支付时间',
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='订单表';
+    ```
+3. 秒杀商品表  miaosha_goods
     - 为什么不再商品表添加一个代表是否是秒杀商品的字段？
     - 方便维护，一段时间某个商品参加秒杀活动，一段时间不参加，会使得需要频繁修改。这样可以让`商品表`相对比较稳定
-4. 秒杀订单表
+    ```
+    CREATE TABLE `miaosha_goods` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '秒杀的商品表',
+      `goods_id` bigint(20) DEFAULT NULL COMMENT '商品id',
+      `miaosha_price` decimal(10,2) DEFAULT '0.00' COMMENT '秒杀价',
+      `stock_count` int(11) DEFAULT NULL COMMENT '库存数量',
+      `start_time` datetime DEFAULT NULL COMMENT '秒杀开始时间',
+      `end_time` datetime DEFAULT NULL COMMENT '秒杀结束时间',
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COMMENT='秒杀商品表';
+    ```
+4. 秒杀订单表    miaosha_order
+    ```
+    CREATE TABLE `miaosha_order` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_id` bigint(20) DEFAULT NULL COMMENT '用户id',
+      `order_id` bigint(20) DEFAULT NULL COMMENT '订单id',
+      `goods_id` bigint(20) DEFAULT NULL COMMENT '商品id',
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='秒杀订单表';
+    ```
+5. 创建对应的 model 对象
 
 ### 3.2 商品列表页 -> 商品详情页 -> 订单详情页
+1. GoodsDao -> GoodsService -> GoodsController
+2. 查询：商品信息+秒杀信息，为此创建 GoodsVO 结合 Goods + MiaoshaGoods
+3. 商品详情页:(1)秒杀未开始或已经结束时，秒杀按钮不能点  (2)秒杀开始时应该有个倒计时
+4. 
 
 
 

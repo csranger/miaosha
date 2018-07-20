@@ -1,0 +1,137 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>商品详情</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+
+    <!--Thymeleaf 使用 @{} 引入静态文件，在 resources/static 路径下，html 使用 src 没有th: -->
+    <!-- jquery js-->
+    <script type="text/javascript" th:src="@{/js/jquery.min.js}"></script>
+    <!-- bootstrap css+js-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
+    <script type="text/javascript" th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
+    <!-- jquery-validator js -->
+    <script type="text/javascript" th:src="@{/jquery-validation/jquery.validate.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-validation/localization/messages_zh.min.js}"></script>
+    <!-- layer js -->
+    <script type="text/javascript" th:src="@{/layer/layer.js}"></script>
+    <!-- md5.js js -->
+    <script type="text/javascript" th:src="@{/js/md5.min.js}"></script>
+    <!-- common.js j -->
+    <script type="text/javascript" th:src="@{/js/common.js}"></script>
+
+</head>
+<body>
+
+<div class="panel panel-default">
+
+    <div class="panel-heading">秒杀商品详情</div>
+    <div class="panel-body">
+        <span th:if="${user eq null}">您还没登陆，请登录后再操作 <br></span>
+        <span>没有收货地址的提示...</span>
+    </div>
+    <br>
+    <br>
+    <br>
+
+    <!--展示信息的 Table-->
+    <table class="table" id="goodslist">
+        <tr>                                <!--第 1 行-->
+            <td>商品名称</td>
+            <td colspan="3" th:text="${good.goodsName}"></td>
+        </tr>
+
+        <tr>                                  <!--第 2 行-->
+            <td>商品图片</td>
+            <td colspan="3"><img th:src="@{${good.goodsImg}}" width="200" height="200"/></td>
+        </tr>
+
+        <tr>                                  <!--第 3 行-->
+            <td>秒杀开始时间</td>
+            <td th:text="${#dates.format(good.startTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
+            <td id="miaoshaTip">
+                <input type="hidden" id="remainSeconds" th:value="${remainSeconds}">
+                <!--隐藏的，因为#countDown在秒杀进行或结束时不存在，通过#remainSeconds获取倒计时的值-->
+                <span th:if="${miaoshaStatus} == 0">
+                    秒杀倒计时：  <span id="countDown" th:text="${remainSeconds}"></span>秒
+                </span>
+                <span th:if="${miaoshaStatus eq 1}">秒杀进行中</span>
+                <span th:if="${miaoshaStatus eq 2}">秒杀已结束</span>
+            </td>
+            <!-- form : 传入 商品 id 进行秒杀 -->
+            <td>
+                <form id="miaoshaForm" method="post" action="/miaosha/do_miaosha">
+                    <button class="btn btn-primary btn-block" type="submit" id="buyButon">立即秒杀</button>
+                    <input type="hidden" name="goodsId" th:value="${good.id}">
+                </form>
+            </td>
+        </tr>
+
+        <tr>                                <!--第 4 行-->
+            <td>商品原价</td>
+            <td colspan="3" th:text="${good.goodsPrice}"></td>
+        </tr>
+        <tr>                                <!--第 5 行-->
+            <td>秒杀价</td>
+            <td colspan="3" th:text="${good.miaoshaPrice}"></td>
+        </tr>
+        <tr>
+            <td>库存数量</td>
+            <td colspan="3" th:text="${good.stockCount}"></td>
+        </tr>
+    </table>
+
+
+</div>
+
+
+</body>
+
+<!--倒计时的一个处理-->
+<script>
+
+    // 页面初始化就执行
+    $(function () {
+        countDown();
+    });
+
+    // remainSeconds 秒杀剩余时间
+    function countDown() {
+        var remainSeconds = $("#remainSeconds").val();
+        var timeout;
+        // 1. 秒杀还没开始，倒计时
+        if (remainSeconds > 0) {
+            // 1.1 秒杀按钮无法点击
+            $("#buyButon").attr("disabled", true);
+            // 1s 后回调这个函数
+            timeout = setTimeout(function () {
+                // 1.2 倒计时
+                $("#countDown").text(remainSeconds - 1);
+                // 1.3 更新 $("#remainSeconds").val() 用于循环时 remainSeconds 变量不断减少
+                $("#remainSeconds").val(remainSeconds - 1);
+                // remainSeconds = remainSeconds - 1;  这种方式会使得显示的值不会改变，所以使用 $("#remainSeconds").val(remainSeconds - 1)
+                countDown();
+            }, 1000);
+
+
+        } else if (remainSeconds == 0) {   // 2. 正在进行秒杀
+            $("#buyButon").attr("disabled", false);
+            if (timeout) {
+                clearTimeout(timeout);
+            }
+            // $("#miaoshaTip").html("秒杀进行中");
+
+
+        } else {    // 3. 秒杀已经结束
+            $("#buyButon").attr("disabled", true);
+            // $("#miaoshaTip").html("秒杀已经结束");
+
+        }
+
+    }
+
+
+</script>
+
+
+</html>
