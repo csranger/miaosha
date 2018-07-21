@@ -1,10 +1,15 @@
 package com.csranger.miaosha.controller;
 
 import com.csranger.miaosha.VO.GoodsVO;
+import com.csranger.miaosha.model.MiaoshaOrder;
 import com.csranger.miaosha.model.MiaoshaUser;
+import com.csranger.miaosha.model.OrderInfo;
 import com.csranger.miaosha.redis.RedisService;
+import com.csranger.miaosha.result.CodeMsg;
 import com.csranger.miaosha.service.GoodsService;
+import com.csranger.miaosha.service.MiaoshaService;
 import com.csranger.miaosha.service.MiaoshaUserService;
+import com.csranger.miaosha.service.OrderService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +41,13 @@ public class GoodsController {
 
     @Autowired
     private GoodsService goodsService;
+
+    @Autowired
+    private OrderService orderService;
+
+    @Autowired
+    private MiaoshaService miaoshaService;
+
 
 //    ！！！！每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息，这就很麻烦！！！！
 //    /**
@@ -88,15 +100,15 @@ public class GoodsController {
         model.addAttribute("user", miaoshaUser);
 
         // 查询某个id的商品(商品详情页点击详情查询某个商品具体信息)
-        GoodsVO good = goodsService.getGoodsVOByGoodsId(goodsId);
-        logger.info("startTime：" + good.getStartTime() + "  endTime: " + good.getEndTime());
-        model.addAttribute("good", good);
+        GoodsVO goods = goodsService.getGoodsVOByGoodsId(goodsId);
+        logger.info("startTime：" + goods.getStartTime() + "  endTime: " + goods.getEndTime());
+        model.addAttribute("goods", goods);
 
         // 该商品的 秒杀状态+秒杀剩余时间
         int miaoshaStatus = 0;    // 代表秒杀状态 0 没开始 1 正在进行 2 结束
         int remainSeconds = 0;    // 秒杀剩余时间 >0 没开始 0 正在进行 -1 结束
-        Long start = good.getStartTime().getTime();    // Returns the number of milliseconds since January 1, 1970, 00:00:00 GMT
-        Long end = good.getEndTime().getTime();
+        Long start = goods.getStartTime().getTime();    // Returns the number of milliseconds since January 1, 1970, 00:00:00 GMT
+        Long end = goods.getEndTime().getTime();
         long now2 = new Date().getTime();
         long now = System.currentTimeMillis();
         logger.info("now == now2 ?" + (now == now2));
@@ -118,6 +130,7 @@ public class GoodsController {
 
         return "goods_detail";
     }
+
 
 
 }

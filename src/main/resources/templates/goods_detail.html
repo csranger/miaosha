@@ -38,17 +38,17 @@
     <table class="table" id="goodslist">
         <tr>                                <!--第 1 行-->
             <td>商品名称</td>
-            <td colspan="3" th:text="${good.goodsName}"></td>
+            <td colspan="3" th:text="${goods.goodsName}"></td>
         </tr>
 
         <tr>                                  <!--第 2 行-->
             <td>商品图片</td>
-            <td colspan="3"><img th:src="@{${good.goodsImg}}" width="200" height="200"/></td>
+            <td colspan="3"><img th:src="@{${goods.goodsImg}}" width="200" height="200"/></td>
         </tr>
 
         <tr>                                  <!--第 3 行-->
             <td>秒杀开始时间</td>
-            <td th:text="${#dates.format(good.startTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
+            <td th:text="${#dates.format(goods.startTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
             <td id="miaoshaTip">
                 <input type="hidden" id="remainSeconds" th:value="${remainSeconds}">
                 <!--隐藏的，因为#countDown在秒杀进行或结束时不存在，通过#remainSeconds获取倒计时的值-->
@@ -58,26 +58,26 @@
                 <span th:if="${miaoshaStatus eq 1}">秒杀进行中</span>
                 <span th:if="${miaoshaStatus eq 2}">秒杀已结束</span>
             </td>
-            <!-- form : 传入 商品 id 进行秒杀 -->
+            <!-- 表单 : 传入参数 goodsId 进行秒杀，使用 @PathVariable("goodsId") 获取请求参数 -->
             <td>
                 <form id="miaoshaForm" method="post" action="/miaosha/do_miaosha">
                     <button class="btn btn-primary btn-block" type="submit" id="buyButon">立即秒杀</button>
-                    <input type="hidden" name="goodsId" th:value="${good.id}">
+                    <input type="hidden" name="goodsId" th:value="${goods.id}">
                 </form>
             </td>
         </tr>
 
         <tr>                                <!--第 4 行-->
             <td>商品原价</td>
-            <td colspan="3" th:text="${good.goodsPrice}"></td>
+            <td colspan="3" th:text="${goods.goodsPrice}"></td>
         </tr>
         <tr>                                <!--第 5 行-->
             <td>秒杀价</td>
-            <td colspan="3" th:text="${good.miaoshaPrice}"></td>
+            <td colspan="3" th:text="${goods.miaoshaPrice}"></td>
         </tr>
         <tr>
             <td>库存数量</td>
-            <td colspan="3" th:text="${good.stockCount}"></td>
+            <td colspan="3" th:text="${goods.stockCount}"></td>
         </tr>
     </table>
 

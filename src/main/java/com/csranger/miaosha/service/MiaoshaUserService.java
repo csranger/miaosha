@@ -26,6 +26,7 @@ public class MiaoshaUserService {
 
     public static final String COOKIE_NAME_TOKEN = "token";   // 指的是放入 cookie 中的变量的名字，就是字符串 "token"
 
+    // 一般提倡在自己的Service下引入自己的Dao(比如说在GoodsService引入GoodsDao)，其他的Dao通过引入对应的Service解决
     @Autowired
     private MiaoshaUserDao miaoshaUserDao;
 

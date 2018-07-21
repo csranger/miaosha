@@ -188,11 +188,19 @@ CREATE TABLE `miaosha_user` (
     ```
 5. 创建对应的 model 对象
 
-### 3.2 商品列表页 -> 商品详情页 -> 订单详情页
+### 3.2 商品列表页 -> 商品详情页
 1. GoodsDao -> GoodsService -> GoodsController
 2. 查询：商品信息+秒杀信息，为此创建 GoodsVO 结合 Goods + MiaoshaGoods
 3. 商品详情页:(1)秒杀未开始或已经结束时，秒杀按钮不能点  (2)秒杀开始时应该有个倒计时
-4. 
+
+### 3.3 秒杀功能
+1. 在商品详情页点击秒杀按钮即将 user 和 goodsId 传入 OrderController 进行处理
+    - 编写 MiaoshaService 处理 (1)减库存 -> (2)下订单 -> (3)写入秒杀订单 步骤，需要事务支持
+    - 如果秒杀成功则进入 订单详情页 order_detail.html 如果失败则进入 miaosha_fail.html
+2. OrderDao -> OrderService -> OrderController miaosha_fail.html order_detail.html
+3. miaoshaService.miaosha(miaoshaUser, goods);     进行秒杀：(1)减库存 -> (2)生成订单 -> (3)数据库插入秒杀订单  这三个步骤需要 事务管理
+4. 一般提倡在自己的Service下引入自己的Dao(比如说在GoodsService引入GoodsDao)，某Service下想使用其他的Dao则引入对应的Service解决(比如MiaoshaService引入goodsService和orderService)
+
 
 
 

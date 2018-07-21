@@ -4,16 +4,16 @@ import java.util.Date;
 
 public class OrderInfo {
 
-    private Long id;
-    private Long userId;
-    private Long goodsId;
+    private Long id;                // 订单id
+    private Long userId;             //用户id，手机号
+    private Long goodsId;             // 商品id
     private Long deliveryAddrId;
     private String goodsName;
     private Integer goodsCount;
     private Double goodsPrice;
     private Integer orderChannel;
     private Integer status;
-    private Date createTime;
+    private Date createDate;
     private Date payDay;
 
 
@@ -90,12 +90,12 @@ public class OrderInfo {
         this.status = status;
     }
 
-    public Date getCreateTime() {
-        return createTime;
+    public Date getCreateDate() {
+        return createDate;
     }
 
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
+    public void setCreateDate(Date createDate) {
+        this.createDate = createDate;
     }
 
     public Date getPayDay() {

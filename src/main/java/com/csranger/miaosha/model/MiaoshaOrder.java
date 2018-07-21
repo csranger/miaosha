@@ -1,8 +1,11 @@
 package com.csranger.miaosha.model;
 
+/**
+ * 只有秒杀商品的订单叫做秒杀订单，因为秒杀活动可能只持续一段时间，就和正常情况下订单分开来
+ */
 public class MiaoshaOrder {
 
-    private Long id;
+    private Long id;  // 自增
     private Long userId;
     private Long orderId;
     private Long goodsId;

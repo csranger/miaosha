@@ -7,7 +7,7 @@ import java.util.Date;
  */
 public class MiaoshaUser {
 
-    private Long id;
+    private Long id;              // 用户id，手机号
     private String nickname;
     private String password;
     private String salt;

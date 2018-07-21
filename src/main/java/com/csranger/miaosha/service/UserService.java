@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService {
 
+    // 一般提倡在自己的Service下引入自己的Dao(比如说在GoodsService引入GoodsDao)，其他的Dao通过引入对应的Service解决
     @Autowired
     private UserDao userDao;
 

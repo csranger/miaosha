@@ -9,6 +9,7 @@ public class MiaoshaGoods {
 
     private Long id;
     private Long goodsId;
+    // 秒杀相关信息:秒杀价，存库，起始与结束时间
     private Double miaoshaPrice;
     private Integer stockCount;
     private Date startTime;
