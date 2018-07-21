@@ -37,7 +37,7 @@ public class OrderService {
         orderInfo.setDeliveryAddrId(0L);
         orderInfo.setGoodsName(good.getGoodsName());
         orderInfo.setGoodsCount(1);   // 购买数量
-        orderInfo.setGoodsPrice(good.getGoodsPrice());
+        orderInfo.setGoodsPrice(good.getMiaoshaPrice());
         orderInfo.setOrderChannel(1);  // 1-pc 2-android 3-ios
         orderInfo.setStatus(0);    // 0-新建未支付 1-已支付 2-已发货 3-已收获 4-已退款 5-已完成
         orderInfo.setCreateDate(new Date());
@@ -50,7 +50,5 @@ public class OrderService {
 
         return orderInfo;
     }
-
-
 
 }

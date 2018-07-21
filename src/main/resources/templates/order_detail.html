@@ -6,10 +6,75 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>订单详情</title>
+
+    <!--Thymeleaf 使用 @{} 引入静态文件，在 resources/static 路径下，html 使用 src 没有th: -->
+    <!-- jquery js-->
+    <script type="text/javascript" th:src="@{/js/jquery.min.js}"></script>
+    <!-- bootstrap css+js-->
+    <link rel="stylesheet" type="text/css" th:href="@{/bootstrap/css/bootstrap.min.css}"/>
+    <script type="text/javascript" th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
+    <!-- jquery-validator js -->
+    <script type="text/javascript" th:src="@{/jquery-validation/jquery.validate.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-validation/localization/messages_zh.min.js}"></script>
+    <!-- layer js -->
+    <script type="text/javascript" th:src="@{/layer/layer.js}"></script>
+    <!-- md5.js js -->
+    <script type="text/javascript" th:src="@{/js/md5.min.js}"></script>
+    <!-- common.js j -->
+    <script type="text/javascript" th:src="@{/js/common.js}"></script>
+
+
 </head>
 <body>
 
-<p th:text="${orderInfo.id}"></p>
+<div class="panel panel-default">
+    <div class="panel-heading">秒杀订单详情</div>
+        <table class="table" id="goodslist">
+            <tr>
+                <td>商品名称</td>
+                <td th:text="${goods.goodsName}" colspan="3"></td>
+            </tr>
+            <tr>
+                <td>商品图片</td>
+                <td colspan="2"><img th:src="@{${goods.goodsImg}}" width="200" height="200"></td>
+            </tr>
+            <tr>
+                <td>订单价格</td>
+                <td colspan="2" th:text="${orderInfo.goodsPrice}"></td>
+            </tr>
+            <tr>
+                <td>下单时间</td>
+                <td th:text="${#dates.format(orderInfo.createDate, 'yyyy-MM-dd HH:mm:ss')}" colspan="2"></td>
+            </tr>
+            <tr>
+                <td>订单状态</td>
+                <td>
+                    <!--0-新建未支付 1-已支付 2-已发货 3-已收获 4-已退款 5-已完成-->
+                    <span th:if="${orderInfo.status eq 0}">未支付</span>
+                    <span th:if="${orderInfo.status eq 1}">待支付</span>
+                    <span th:if="${orderInfo.status eq 2}">已发货</span>
+                    <span th:if="${orderInfo.status eq 3}">已收获</span>
+                    <span th:if="${orderInfo.status eq 4}">已退款</span>
+                    <span th:if="${orderInfo.status eq 5}">已完成</span>
+                </td>
+                <td><!--如果未支付，应该有支付按钮，点击按钮应跳转到支付页面-->
+                    <button class="btn btn-primary btn-block" type="submit" id="payButton">立即支付</button>
+                </td>
+            </tr>
+            <tr>
+                <td>收货人</td>
+                <td colspan="2" th:text="${orderInfo.userId}"></td>
+            </tr>
+            <tr>
+                <td>收货地址</td>
+                <td colspan="2" th:text="${orderInfo.deliveryAddrId}"></td>
+            </tr>
+
+
+
+        </table>
+
+</div>
 
 </body>
 </html>

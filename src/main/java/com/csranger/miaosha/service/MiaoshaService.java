@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 将执行秒杀操作放入，进行事务管理
- * (1)减库存 -> (2)下订单 -> (3)写入秒杀订单
+ * (1)减库存 -> (2)下订单 -> (3)数据库插入秒杀订单
  */
 @Service
 public class MiaoshaService {

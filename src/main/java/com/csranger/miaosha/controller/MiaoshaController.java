@@ -65,7 +65,7 @@ public class MiaoshaController {
         }
         // 4. 进行秒杀：(1)减库存 -> (2)生成订单 -> (3)数据库插入秒杀订单  这三个步骤需要 事务管理
         // 因此可以将这几步放入 MiaoshaService 进行操作，秒杀成功进入订单详情页
-        // 进行秒杀操作只需 MiaoshaUser user, GoodsVO good
+        // 进行秒杀操作只需 MiaoshaUser user, GoodsVO goods
         OrderInfo orderInfo = miaoshaService.miaosha(miaoshaUser, goods);
         model.addAttribute("orderInfo", orderInfo);
         model.addAttribute("goods", goods);
