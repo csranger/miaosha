@@ -83,6 +83,7 @@ public class GoodsController {
 
 
     // 查询秒杀商品列表
+    // 如果直接请求这个页面，则 cookie 里并没有 token，也就从 redis 中取不到 user，则 MiaoshaUser miaoshaUser 参数 miaoshauser 是 null，model 的user对应的也为null
     @RequestMapping(value = "/to_list")
     public String list(Model model, MiaoshaUser miaoshaUser) {
         model.addAttribute("user", miaoshaUser);

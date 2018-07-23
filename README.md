@@ -39,7 +39,7 @@
 3. FastJson依赖： 序列化，将java对象转化成Json字符串写到redis服务器
 4. 在DemoController中进行测试
     ```
-    @RequestMapping(value = "/redis/set")
+        @RequestMapping(value = "/redis/set")
         @ResponseBody
         public  Result<String> redisSet() {
             // 键是"k2"，始终是String，值可以是任意类型T，为了存在redis中，将T转化成String，再存
@@ -202,6 +202,47 @@ CREATE TABLE `miaosha_user` (
 4. 一般提倡在自己的Service下引入自己的Dao(比如说在GoodsService引入GoodsDao)，某Service下想使用其他的Dao则引入对应的Service解决(比如MiaoshaService引入goodsService和orderService)
 5. 订单详情页 order_detail.html
 
+## 4. JMeter 压测
+### 4.1 JMeter 入门
+1. 压测 /goods/to_list 页面
+    - TestPlan->Add->Threads->Thread Group
+    - Thread Group 下的 Number of Threads 就是并发数，这里先设为1000；Ramp-up Period 是通过多久启动全部线程，这里设为0 Loop count : 10
+    - Thread Group 新建 Configure Element -> Http request default 这里配置好后，其他的请求就不需要再配了
+    - Thread Group 新建 Sample -> Http Request
+    - Thread Group 新建 Listener -> Aggregate report 和 Graph result
+2. 结果显示 Throughput 大约在 2880/sec 左右
+    ```
+        @RequestMapping(value = "/to_list")
+        public String list(Model model, MiaoshaUser miaoshaUser) {
+            model.addAttribute("user", miaoshaUser);
+    
+            // 查询商品列表
+            List<GoodsVO> goodsList = goodsService.listGoodsVO();
+    
+            model.addAttribute("goodsList", goodsList);
+            return "goods_list";
+        }
+    ```
+    - 可见性能的瓶颈在从mysql查询List<GoodsVO> goodsList = goodsService.listGoodsVO();
+
+### 4.2 自定义变量模拟多用户
+1. 压测 /user/info 页面,这个需要在请求参数里设置 token=db762a1e7fbc4857b7787e02f4e1ca09(在页面请求的请求cookie里查看)
+2. 结果显示 Throughput 大约在 7000/sec 左右
+    ```
+        @RequestMapping(value = "/info")
+        @ResponseBody
+        public Result<MiaoshaUser> list(Model model, MiaoshaUser miaoshaUser) {
+            model.addAttribute("user", miaoshaUser);
+            return Result.success(miaoshaUser);
+        }
+    ```
+3. 这里的QPS高的原因是因为只读了redis中的缓存获取用户信息，而商品列表页面不仅读了缓存还进行Mysql数据库的查询
+4. 测试缺点：相同的 token，意味着均是同一个用户进行页面请求，如何模拟多用户？
+    - Add -> configure element -> CSV Data Set Config  上传配置，里面是  userId,userToken
+    ![配置文件截图](/Users/hailong/Documents/jmeter/multiUserConfigPiture.png "配置文件截图")
+    ![Mysql miaos_user 表](/Users/hailong/Documents/jmeter/usersInMysql.png "Mysql miaos_user 表")
+    ![Jmeter 设置](/Users/hailong/Documents/jmeter/jmeterMultiuserConfig.png "Jmeter 设置")
+5. Recycle on EOF : 例如1000此请求，但只有10个token用户，是否允许到了token末尾后循环再次请求，设为 true
 
 
 

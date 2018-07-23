@@ -15,13 +15,16 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+/**
+ * 每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息，这就很麻烦
+ */
 @Service
 public class UserArgumentResolver implements HandlerMethodArgumentResolver {
 
     @Autowired
     private MiaoshaUserService miaoshaUserService;
 
-    //
+    // resolveArgument 方法返回 MiaoshaUser 对象
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
         Class<?> clazz = parameter.getParameterType();    // 获取参数类型
@@ -38,6 +41,7 @@ public class UserArgumentResolver implements HandlerMethodArgumentResolver {
         HttpServletResponse response = webRequest.getNativeResponse(HttpServletResponse.class);
 
         // 每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息
+        // 如果cookie里没有token(直接打开页面没有登陆的情况)，getByToken 方法从redis中去不成对象，返回 null
         String paramToken = request.getParameter(MiaoshaUserService.COOKIE_NAME_TOKEN);
         String cookieToken = getCookieValue(request, MiaoshaUserService.COOKIE_NAME_TOKEN);
         if (StringUtils.isBlank(paramToken) && StringUtils.isBlank(cookieToken)) {
@@ -47,8 +51,14 @@ public class UserArgumentResolver implements HandlerMethodArgumentResolver {
         return miaoshaUserService.getByToken(response, token);
     }
 
+    /**
+     * 从用户请求中的 cookie 中取出 token 变量的值(UUID)
+     */
     private String getCookieValue(HttpServletRequest request, String cookieName) {
         Cookie[] cookies = request.getCookies();
+        if (cookies == null || cookies.length <= 0) {
+            return null;
+        }
         for (Cookie cookie : cookies) {
             if (cookie.getName().equals(cookieName)) {
                 return cookie.getValue();
