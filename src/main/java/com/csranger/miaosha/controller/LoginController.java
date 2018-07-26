@@ -39,7 +39,7 @@ public class LoginController {
     // 测试时 使用12345678909 123456 登录测试 mysql 保存的两次 md5 密码是 b7797cce01b4b131b433b6acf4add449
     @RequestMapping(value = "/do_login")
     @ResponseBody
-    public Result<Boolean> doLogin(HttpServletResponse response, @Valid LoginVO loginVO) {
+    public Result<String> doLogin(HttpServletResponse response, @Valid LoginVO loginVO) {
         // password 123456 时输出日志为 LoginVO{mobile='12345678909', password='d3b1294a61a07da9b49b6e22b2cbd7f9'}
         log.info(loginVO.toString());
         // 1. 参数校验：密码是否为空，手机号是否符合格式 之类的检查
@@ -56,8 +56,11 @@ public class LoginController {
 //            return Result.error(CodeMsg.MOBILE_ERROR);
 //        }
         // 2. 登陆:判断手机号对应的账号是否存在于数据库，如果存在密码是否可以匹配上
-        miaoshaUserService.login(response, loginVO);    // 登陆不成功会抛出异常从而处理
-        return Result.success(true);
+        // 给这个用户生成一个 token 来标识这个用户, 将 token-user 缓存到 redis -> 写到 cookie 当中传递给客户端
+//        miaoshaUserService.login(response, loginVO);
+        String token = miaoshaUserService.login(response, loginVO);    // 登陆不成功会抛出异常从而处理
+
+        return Result.success(token);
     }
 
 }

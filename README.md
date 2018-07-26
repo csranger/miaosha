@@ -204,7 +204,7 @@ CREATE TABLE `miaosha_user` (
 
 ## 4. JMeter 压测
 ### 4.1 JMeter 入门
-1. 压测 /goods/to_list 页面
+1. 压测 /goods/to_list 页面  yace1.jmx
     - TestPlan->Add->Threads->Thread Group
     - Thread Group 下的 Number of Threads 就是并发数，这里先设为1000；Ramp-up Period 是通过多久启动全部线程，这里设为0 Loop count : 10
     - Thread Group 新建 Configure Element -> Http request default 这里配置好后，其他的请求就不需要再配了
@@ -226,7 +226,7 @@ CREATE TABLE `miaosha_user` (
     - 可见性能的瓶颈在从mysql查询List<GoodsVO> goodsList = goodsService.listGoodsVO();
 
 ### 4.2 自定义变量模拟多用户
-1. 压测 /user/info 页面,这个需要在请求参数里设置 token=db762a1e7fbc4857b7787e02f4e1ca09(在页面请求的请求cookie里查看)
+1. 压测 /user/info 页面,这个需要在请求参数里设置 token=db762a1e7fbc4857b7787e02f4e1ca09(在页面请求的请求cookie里查看)   yace2.jmx
 2. 结果显示 Throughput 大约在 7000/sec 左右
     ```
         @RequestMapping(value = "/info")
@@ -237,14 +237,111 @@ CREATE TABLE `miaosha_user` (
         }
     ```
 3. 这里的QPS高的原因是因为只读了redis中的缓存获取用户信息，而商品列表页面不仅读了缓存还进行Mysql数据库的查询
+    - **并发的瓶颈显然在数据库 mysql，数据库分库分表需要从一开始设计，否则很难扩展，这方面学习 Mycat**
 4. 测试缺点：相同的 token，意味着均是同一个用户进行页面请求，如何模拟多用户？
     - Add -> configure element -> CSV Data Set Config  上传配置，里面是  userId,userToken
-    ![配置文件截图](/Users/hailong/Documents/jmeter/multiUserConfigPiture.png "配置文件截图")
-    ![Mysql miaos_user 表](/Users/hailong/Documents/jmeter/usersInMysql.png "Mysql miaos_user 表")
-    ![Jmeter 设置](/Users/hailong/Documents/jmeter/jmeterMultiuserConfig.png "Jmeter 设置")
 5. Recycle on EOF : 例如1000此请求，但只有10个token用户，是否允许到了token末尾后循环再次请求，设为 true
 
+### 4.3 redis 压测
+1. redis-benchmark -h 127.0.0.1 -p 6379 -c 100 -n 100000
+     - -n 100000 -c 100 100个并发 100000个请求 -h host -p port   测试结果选取片段如下
+     ```
+    ====== GET ======
+      100000 requests completed in 1.17 seconds
+      100 parallel clients
+      3 bytes payload
+      keep alive: 1
+    
+    99.86% <= 1 milliseconds
+    100.00% <= 1 milliseconds
+    85763.29 requests per second
+    ```
+    - 这个结果是对 redis 的 get 进行压测的结果 ： QPS 85763；    3字节为单位进行测试的    
+2. redis-benchmark -h 127.0.0.1 -p 6379 -q -d 100
+    - -d 100 指以100字节为单位进行测试
+    - -q 使得输出结果简洁                  测试结果选取片段如下
+    ```
+    PING_INLINE: 87260.03 requests per second
+    PING_BULK: 86430.43 requests per second
+    SET: 84961.77 requests per second
+    GET: 85763.29 requests per second
+    INCR: 84817.64 requests per second
+    ```
+3. redis-benchmark -t set,lpush -n 100000 -q
+    - -t set,lpush 指压测 set push 命令
+4. redis-benchmark -n 100000 -q script load "redis.call('set','foo','bar')"
+    - script load "redis.call('set','foo','bar')"   只测试这条命令 redis.call('set','foo','bar') 
 
+### spring boot 打 war 包
+1. spring boot 默认打 jar 包，如何生成 war 包？war 包可放在 tomcat 下运行
+    - sprint-boot-starter-tomcat 加上 <provided> 类似于SSM架构下 javax.servlet-api   jsp-api  包：因为运行时是有 tomcat 的，编译以来，运行时是没有的
+    - 添加 maven-war-plugin 插件
+    - <packaging>war</packaging>
+    - 修改启动类 继承一个类
+    ```java
+    public class MiaoshaApplication extends SpringBootServletIniializer {
+       public static void main(String[] args) {
+           SpringApplication.run(MiaoshaApplication.class, args);   
+       }
+       
+       @Override
+       protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {   
+           return builder.sources(MiaoshaApplication.class);
+       }
+    }
+    ```
+2. 在项目路径下执行 mvn clean package 在target文件下的war包放入tomcat下的ROOT文件夹下启动tomcat即可
+
+### Jmeter 命令行压测 
+1. /goods/to_list 页面    yace3.jmx
+    - 命令行启动程序-linux 服务器上这样用 mvn clean package 编译项目会形成 jar 包
+    - 进入target目录下出现一个.jar的文件，使用java命令 nohup java -jar miaosha.jar & 启动，这时程序已经运行
+    - tail -f nohup.out 实时查看日志
+2. Jmeter 配置：miaoshaYace.jmx
+    - Number of Threads 5000；Ramp-up Period 0; Loop count : 10   5000个并发循环10次
+    - 进入 yace3.jmx 所在文件夹执行 jmeter -n -t yace3.jmx -l result.jtl
+    - rm -rf result.jtl 在执行一次为准
+    - 打开 jemter 在结果报告中打开此文件即可浏览结果
+    
+### 综合应用 压测秒杀页面
+1. /miaosha/do_miaosha 页面   yace4.jmx
+    ```
+    @RequestMapping(value = "do_miaosha")
+    public String miaosha(MiaoshaUser miaoshaUser, Model model, @RequestParam("goodsId") long goodsId) {
+            logger.info("MiaoshaController 正在处理 /miaosha/do_miaoha 请求......   goodsId: " + goodsId);
+            model.addAttribute("user", miaoshaUser);
+            ...
+            ...
+            return "order_detail";   
+        }
+    ```
+    - 显然需要参数 token 和 goodsId
+2. 生成5000个用户插入到数据库中，并根据 id和密码 进行登陆(/login/do_login)，使得服务端生成token缓存到redis中，并且获取这些token到tokens.txt文件里
+    - do_login 页面 controller 返回的是 Result<Boolean>，为了获取 token，需要对 controller 进行改造
+        ```
+        @RequestMapping(value = "/do_login")
+        @ResponseBody
+        public Result<Boolean> doLogin(HttpServletResponse response, @Valid LoginVO loginVO) {
+                miaoshaUserService.login(response, loginVO);
+                return Result.success(true);
+            }
+        ```
+        ```
+        @RequestMapping(value = "/do_login")
+        @ResponseBody
+        public Result<String> doLogin(HttpServletResponse response, @Valid LoginVO loginVO) {
+                String token = miaoshaUserService.login(response, loginVO);
+                return Result.success(token);
+            }
+        ```
+3. 压测： jmeter -n -t yace4.jmx -l result.jtl 命令行压测 或者 直接在本地运行程序   
+    - 1000线程用户，循环10次，线程数太大本地会溢出。
+    - goodsId=2的商品秒杀库存为500
+    - 结果：QPS：1557.9/s  卖超631份，卖超131
+    ![秒杀用户token](./jmeter/pics/秒杀用户token.png "秒杀用户token")
+    ![秒杀线程参数](./jmeter/pics/秒杀线程参数.png "秒杀线程参数")
+    ![秒杀请求截图](./jmeter/pics/秒杀请求截图.png "秒杀请求截图")
+    ![秒杀压测结果](./jmeter/pics/秒杀压测结果.png "秒杀压测结果")
 
 
 

@@ -40,7 +40,7 @@ public class MiaoshaUserService {
     // 登陆账号就是根据 mobile 查询数据库是否有此用户的记录，如果有此id，则对比加密的 password 是否相同
     // 返回的 CodeMsg 代表登陆的消息：成功；失败 + 失败的消息msg
     // CodeMsg 作为 service层不合适，改成 boolean，遇到异常不再返回 CodeMsg 而是 GlobalException，将 CodeMsg 作为异常信息
-    public boolean login(HttpServletResponse response, LoginVO loginVO) {
+    public String login(HttpServletResponse response, LoginVO loginVO) {
         if (loginVO == null) {
             throw new GlobalException(CodeMsg.SERVER_ERROR);
         }
@@ -68,7 +68,7 @@ public class MiaoshaUserService {
         addCookie(response, token,  miaoshaUser);
         logger.info("生成 token 放入 cookie，写到 response 中发送给客户端");
 
-        return true;
+        return token;
 
     }
 

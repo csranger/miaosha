@@ -99,19 +99,20 @@
                 mobile: $("#mobile").val(),
                 password: password
             },
-            // 3.2.1 传给 do_login 页面的数据成功的话触发操作
-            // 参数 data 指的是服务端返回的结果 doLogin 登陆成功会返回 Result.success(true);
+
             success: function (data) {
                 layer.closeAll();
                 console.log(data);
+                // 3.2.1 传给 do_login 页面的数据成功的话触发操作
+                // 参数 data 指的是服务端返回的结果 doLogin 登陆成功会返回 Result.success(true);
                 if (data.code == 0) {
                     layer.msg("成功");
                     window.location.href = "/goods/to_list";
-                } else {
+                } else {            // 3.2.2 传给 do_login 页面的数据失败的话触发操作：
                     layer.msg(data.msg);
                 }
             },
-            // 3.2.2 传给 do_login 页面的数据失败的话触发操作：
+            //
             error: function () {
                 layer.closeAll();  // 将全部框关闭
             }
