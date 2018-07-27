@@ -42,8 +42,6 @@ public class GoodsController {
     private ThymeleafViewResolver thymeleafViewResolver;
 
 
-
-
 //    ！！！！每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息，这就很麻烦！！！！
 //    /**
 //     * 服务器给用户设定了 cookie 之后，客户端在随后的访问当中都带有这个值，使用 @CookieValue 注解获取到这个值
@@ -84,34 +82,46 @@ public class GoodsController {
     public String list(Model model, MiaoshaUser miaoshaUser, HttpServletRequest request, HttpServletResponse response) {
         model.addAttribute("user", miaoshaUser);
 
+        // 页面级缓存：访问页面不是直接由系统渲染，而是(1)首先从缓存里面取，如果找到直接返回给客户端，(2)没有则手动渲染这个模版，渲染后再将结果输出
+        // 给客户端，(3)同时将结果缓存到redis中
+        // 取缓存
+        String html = redisService.get(GoodsKey.getGoodsList, "", String.class);
+        if (!StringUtils.isBlank(html)) {
+            return html;
+        }
+
         // 查询商品列表
         List<GoodsVO> goodsList = goodsService.listGoodsVO();
 
         model.addAttribute("goodsList", goodsList);
 //        return "goods_list";
-        // 直接返回html的源码
-        // 访问页面不是直接由系统渲染，而是(1)首先从缓存里面取，如果找到直接返回给客户端，(2)没有则手动渲染这个模版，渲染后再将结果输出给客户端，(3)同时将结果缓存到redis中
-        String html = redisService.get(GoodsKey.getGoodsList, "", String.class);
-        if (!StringUtils.isBlank(html)) {
-            return html;
-        }
+
+
         // 手动渲染模版
         WebContext ctx = new WebContext(request, response, request.getServletContext(), request.getLocale(), model.asMap());
-        html= thymeleafViewResolver.getTemplateEngine().process("goods_list", ctx);
+        html = thymeleafViewResolver.getTemplateEngine().process("goods_list", ctx);
         if (!StringUtils.isBlank(html)) {
             redisService.set(GoodsKey.getGoodsList, "", html);
         }
         return html;
     }
 
-    // 秒杀商品商品详情页
-    @RequestMapping(value = "/to_detail/{goodsId}")
-    public String detail(Model model, MiaoshaUser miaoshaUser, @PathVariable("goodsId") long goodsId) {
+    // 秒杀商品商品详情页  produces = "text/html" 返回的是html
+    @RequestMapping(value = "/to_detail/{goodsId}", produces = "text/html")
+    @ResponseBody
+    public String detail(Model model, MiaoshaUser miaoshaUser, @PathVariable("goodsId") long goodsId,
+                         HttpServletResponse response, HttpServletRequest request) {
+
+        // 取缓存
+        String html = redisService.get(GoodsKey.getGoodsDetail, "" + goodsId, String.class);
+        if (!StringUtils.isBlank(html)) {
+            return html;
+        }
+
         model.addAttribute("user", miaoshaUser);
 
         // 查询某个id的商品(商品详情页点击详情查询某个商品具体信息)
         GoodsVO goods = goodsService.getGoodsVOByGoodsId(goodsId);
-        logger.info("startTime：" + goods.getStartTime() + "  endTime: " + goods.getEndTime());
         model.addAttribute("goods", goods);
 
         // 该商品的 秒杀状态+秒杀剩余时间
@@ -137,10 +147,18 @@ public class GoodsController {
         model.addAttribute("miaoshaStatus", miaoshaStatus);
         model.addAttribute("remainSeconds", remainSeconds);
 
+//        return "goods_detail";
 
-        return "goods_detail";
+        // 手动渲染模版
+        WebContext ctx = new WebContext(request, response, request.getServletContext(), request.getLocale(), model.asMap());
+        html = thymeleafViewResolver.getTemplateEngine().process("goods_detail", ctx);
+        if (!StringUtils.isBlank(html)) {
+            redisService.set(GoodsKey.getGoodsDetail, "" + goodsId, html);
+        }
+        return html;
+
+
     }
-
 
 
 }

@@ -10,7 +10,10 @@ public class GoodsKey extends BasePrefix {
     }
 
 
-    // 唯一实例: 默认缓存过期时间 60s
+    // 实例: 默认缓存过期时间 60s
     public static GoodsKey getGoodsList = new GoodsKey(60, "gl");
+
+
+    public static GoodsKey getGoodsDetail = new GoodsKey(60, "gd");
 
 }
