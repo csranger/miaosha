@@ -4,6 +4,7 @@
 3. jsr303 参数校验
 4. 全局异常处理：@ControllerAdvice + @ExceptionHandler
 5. 分布式 session (redis 实现)
+6. Jmeter 模拟多用户同时进行秒杀比较优化前后QPS
 
 
 # 二、如何使用
@@ -272,7 +273,7 @@ CREATE TABLE `miaosha_user` (
 4. redis-benchmark -n 100000 -q script load "redis.call('set','foo','bar')"
     - script load "redis.call('set','foo','bar')"   只测试这条命令 redis.call('set','foo','bar') 
 
-### spring boot 打 war 包
+### 4.4 spring boot 打 war 包
 1. spring boot 默认打 jar 包，如何生成 war 包？war 包可放在 tomcat 下运行
     - sprint-boot-starter-tomcat 加上 <provided> 类似于SSM架构下 javax.servlet-api   jsp-api  包：因为运行时是有 tomcat 的，编译以来，运行时是没有的
     - 添加 maven-war-plugin 插件
@@ -292,7 +293,7 @@ CREATE TABLE `miaosha_user` (
     ```
 2. 在项目路径下执行 mvn clean package 在target文件下的war包放入tomcat下的ROOT文件夹下启动tomcat即可
 
-### Jmeter 命令行压测 
+### 4.5 Jmeter 命令行压测 
 1. /goods/to_list 页面    yace3.jmx
     - 命令行启动程序-linux 服务器上这样用 mvn clean package 编译项目会形成 jar 包
     - 进入target目录下出现一个.jar的文件，使用java命令 nohup java -jar miaosha.jar & 启动，这时程序已经运行
@@ -303,7 +304,7 @@ CREATE TABLE `miaosha_user` (
     - rm -rf result.jtl 在执行一次为准
     - 打开 jemter 在结果报告中打开此文件即可浏览结果
     
-### 综合应用 压测秒杀页面
+### 4.6 综合应用 压测秒杀页面
 1. /miaosha/do_miaosha 页面   yace4.jmx
     ```
     @RequestMapping(value = "do_miaosha")
@@ -337,12 +338,20 @@ CREATE TABLE `miaosha_user` (
 3. 压测： jmeter -n -t yace4.jmx -l result.jtl 命令行压测 或者 直接在本地运行程序   
     - 1000线程用户，循环10次，线程数太大本地会溢出。
     - goodsId=2的商品秒杀库存为500
-    - 结果：QPS：1557.9/s  卖超631份，卖超131
+    - 结果：QPS：1557.9/s  卖了631份，卖超131
     ![秒杀用户token](./jmeter/pics/秒杀用户token.png "秒杀用户token")
     ![秒杀线程参数](./jmeter/pics/秒杀线程参数.png "秒杀线程参数")
     ![秒杀请求截图](./jmeter/pics/秒杀请求截图.png "秒杀请求截图")
     ![秒杀压测结果](./jmeter/pics/秒杀压测结果.png "秒杀压测结果")
-
+    
+## 5. 页面优化技术
+### 5.1 页面缓存+URL缓存+对象缓存
+1. 并发的瓶颈在数据库，使用各种粒度的缓存减少对数据库的访问
+2. 页面缓存：访问页面不是直接由系统渲染，而是首先从缓存里面取，如果找到直接返回给客户端，没有则手动渲染这个模版，渲染后再将结果输出给客
+   户端，同时将结果缓存到redis中     以 /goods/to_list 页面为例
+   - 取缓存
+   - 手动渲染模版
+   - 结果输出
 
 
 

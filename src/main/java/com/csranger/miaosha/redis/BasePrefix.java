@@ -5,7 +5,7 @@ package com.csranger.miaosha.redis;
  */
 public abstract class BasePrefix implements KeyPrefix {
 
-    private int expireSeconds;    // redis 存储有效期，在MiaoshaService里让其等于 cookie 有限期
+    private int expireSeconds;    // redis 存储有效期，单位 s, 在MiaoshaService里让其等于 cookie 有限期
 
     private String prefix;
 
@@ -32,7 +32,7 @@ public abstract class BasePrefix implements KeyPrefix {
 
     @Override
     public String getPrefix() {
-        String className = getClass().getName();
+        String className = getClass().getSimpleName();   // 不会像 getName() 方法一样加上包名
         return className + ":" + prefix;
     }
 }

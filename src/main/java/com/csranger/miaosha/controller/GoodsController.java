@@ -4,24 +4,23 @@ import com.csranger.miaosha.VO.GoodsVO;
 import com.csranger.miaosha.model.MiaoshaOrder;
 import com.csranger.miaosha.model.MiaoshaUser;
 import com.csranger.miaosha.model.OrderInfo;
+import com.csranger.miaosha.redis.GoodsKey;
 import com.csranger.miaosha.redis.RedisService;
 import com.csranger.miaosha.result.CodeMsg;
 import com.csranger.miaosha.service.GoodsService;
-import com.csranger.miaosha.service.MiaoshaService;
-import com.csranger.miaosha.service.MiaoshaUserService;
-import com.csranger.miaosha.service.OrderService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
+import org.thymeleaf.context.WebContext;
+import org.thymeleaf.spring5.view.ThymeleafViewResolver;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Date;
 import java.util.List;
@@ -34,19 +33,15 @@ public class GoodsController {
 
 
     @Autowired
-    private MiaoshaUserService miaoshaUserService;
-
-    @Autowired
     private RedisService redisService;
 
     @Autowired
     private GoodsService goodsService;
 
     @Autowired
-    private OrderService orderService;
+    private ThymeleafViewResolver thymeleafViewResolver;
 
-    @Autowired
-    private MiaoshaService miaoshaService;
+
 
 
 //    ！！！！每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息，这就很麻烦！！！！
@@ -84,15 +79,29 @@ public class GoodsController {
 
     // 查询秒杀商品列表
     // 如果直接请求这个页面，则 cookie 里并没有 token，也就从 redis 中取不到 user，则 MiaoshaUser miaoshaUser 参数 miaoshauser 是 null，model 的user对应的也为null
-    @RequestMapping(value = "/to_list")
-    public String list(Model model, MiaoshaUser miaoshaUser) {
+    @RequestMapping(value = "/to_list", produces = "text/html")
+    @ResponseBody
+    public String list(Model model, MiaoshaUser miaoshaUser, HttpServletRequest request, HttpServletResponse response) {
         model.addAttribute("user", miaoshaUser);
 
         // 查询商品列表
         List<GoodsVO> goodsList = goodsService.listGoodsVO();
 
         model.addAttribute("goodsList", goodsList);
-        return "goods_list";
+//        return "goods_list";
+        // 直接返回html的源码
+        // 访问页面不是直接由系统渲染，而是(1)首先从缓存里面取，如果找到直接返回给客户端，(2)没有则手动渲染这个模版，渲染后再将结果输出给客户端，(3)同时将结果缓存到redis中
+        String html = redisService.get(GoodsKey.getGoodsList, "", String.class);
+        if (!StringUtils.isBlank(html)) {
+            return html;
+        }
+        // 手动渲染模版
+        WebContext ctx = new WebContext(request, response, request.getServletContext(), request.getLocale(), model.asMap());
+        html= thymeleafViewResolver.getTemplateEngine().process("goods_list", ctx);
+        if (!StringUtils.isBlank(html)) {
+            redisService.set(GoodsKey.getGoodsList, "", html);
+        }
+        return html;
     }
 
     // 秒杀商品商品详情页
