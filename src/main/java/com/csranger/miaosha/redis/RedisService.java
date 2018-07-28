@@ -159,4 +159,20 @@ public class RedisService {
         }
     }
 
+    /**
+     * 6. delete 删除指定键对应的缓存
+     */
+    public boolean delete(KeyPrefix prefix, String key) {
+        Jedis jedis = null;
+        try {
+            jedis = jedisPool.getResource();
+            // realKey
+            String realKey = prefix.getPrefix() + key;
+            long ret = jedis.del(realKey);
+            return ret > 0;
+        } finally {
+            returnToPool(jedis);
+        }
+    }
+
 }

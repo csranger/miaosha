@@ -21,8 +21,10 @@ public class MiaoshaUserKey extends BasePrefix {
 
 
 
-    // 此 MiaoshaUserKey 类的唯一对象 token 使用静态方法列出来: 过期时间 3600 * 24 * 2 ，前缀 "tk"
+    // 此 MiaoshaUserKey 类的对象 token 使用静态方法列出来: 过期时间 3600 * 24 * 2 ，前缀 "tk"
     public static MiaoshaUserKey token = new MiaoshaUserKey(TOKEN_EXPIRE, "tk");
+
+    public static MiaoshaUserKey getById = new MiaoshaUserKey(0, "id");  // 过期时间设为0，意味着永久有效
 
 
 

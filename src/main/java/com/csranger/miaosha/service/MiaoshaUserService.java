@@ -33,8 +33,20 @@ public class MiaoshaUserService {
     @Autowired
     private RedisService redisService;
 
+
+    // 对象级缓存
     public MiaoshaUser getById(Long id) {
-        return miaoshaUserDao.getById(id);
+//        return miaoshaUserDao.getById(id);
+        // 取缓存
+        MiaoshaUser miaoshaUser = redisService.get(MiaoshaUserKey.getById, "" + id, MiaoshaUser.class);
+        if (miaoshaUser != null) {
+            return miaoshaUser;
+        }
+        miaoshaUser = miaoshaUserDao.getById(id);
+        if (miaoshaUser != null) {
+            redisService.set(MiaoshaUserKey.getById, "" + id, miaoshaUser);
+        }
+        return miaoshaUser;
     }
 
     // 登陆账号就是根据 mobile 查询数据库是否有此用户的记录，如果有此id，则对比加密的 password 是否相同
@@ -49,7 +61,7 @@ public class MiaoshaUserService {
         String mobile = loginVO.getMobile();
         MiaoshaUser miaoshaUser = getById(Long.parseLong(mobile));     // 用户信息
         if (miaoshaUser == null) {
-            throw new GlobalException(CodeMsg.MOBILE_NOT_EXOIST);
+            throw new GlobalException(CodeMsg.MOBILE_NOT_EXIST);
         }
         // 2. 如果手机号存在于数据库中,进行密码匹配
         String dbPass = miaoshaUser.getPassword();
@@ -106,4 +118,33 @@ public class MiaoshaUserService {
         return miaoshaUser;
 
     }
+
+    /**
+     * 更新用户密码
+     * 对象级缓存
+     * String token 为了在更新密码后更新全部同 id 用户的缓存
+     * long id 代表用户
+     * String formPass 更新的密码，代表一次加密后的密码
+     */
+    public boolean updatePassword(String token, long id, String formPass) {
+        // 取user
+        MiaoshaUser miaoshaUser = getById(id);
+        if (miaoshaUser == null) {
+            throw new GlobalException(CodeMsg.MOBILE_NOT_EXIST);
+        }
+        // 更新数据库，这里新创建了一个 MiaoshaUser 对象，且值设定了 id 和 password 属性，没有使用 miaoshaUser
+        MiaoshaUser toBeUpdate = new MiaoshaUser();
+        toBeUpdate.setId(id);
+        toBeUpdate.setPassword(MD5Util.fromPassToDBPass(formPass, miaoshaUser.getSalt()));
+        miaoshaUserDao.updatePassword(toBeUpdate);
+        // 更新缓存: 删除 getById 对应的缓存，更新 token 对应的缓存
+        redisService.delete(MiaoshaUserKey.getById, "" + id);  // 删除 id 对应的 redis 缓存对象
+        miaoshaUser.setPassword(toBeUpdate.getPassword());    // 二次加密的
+        redisService.set(MiaoshaUserKey.token, token, miaoshaUser);
+
+        return true;
+    }
+
+
+
 }

@@ -5,6 +5,7 @@
 4. 全局异常处理：@ControllerAdvice + @ExceptionHandler
 5. 分布式 session (redis 实现)
 6. Jmeter 模拟多用户同时进行秒杀比较优化前后QPS
+7. 页面级缓存+URL级缓存+对象级缓存
 
 
 # 二、如何使用
@@ -200,7 +201,8 @@ CREATE TABLE `miaosha_user` (
     - 如果秒杀成功则进入 订单详情页 order_detail.html 如果失败则进入 miaosha_fail.html
 2. OrderDao -> OrderService -> OrderController miaosha_fail.html order_detail.html
 3. miaoshaService.miaosha(miaoshaUser, goods);     进行秒杀：(1)减库存 -> (2)生成订单 -> (3)数据库插入秒杀订单  这三个步骤需要 事务管理
-4. 一般提倡在自己的Service下引入自己的Dao(比如说在GoodsService引入GoodsDao)，某Service下想使用其他的Dao则引入对应的Service解决(比如MiaoshaService引入goodsService和orderService)
+4. 一般提倡在自己的Service下引入自己的Dao(比如说在GoodsService引入GoodsDao)，某Service下想使用其他的dao则引入对应的Service解决，
+   比如MiaoshaService引入goodsService和orderService，因为service下可能会涉及到缓存的更新，直接调用dao则会忽略这点
 5. 订单详情页 order_detail.html
 
 ## 4. JMeter 压测
@@ -352,8 +354,20 @@ CREATE TABLE `miaosha_user` (
    - 取缓存
    - 手动渲染模版
    - 结果输出
-3. URL 级缓存：和页面缓存很像，区别是页面缓存是没有参数的，大家访问的均是同一个页面，但/goods/to_list 对于不同的商品返回不同的页面，
+3. URL 级缓存：和页面缓存几乎一样，区别是页面缓存是没有参数的，大家访问的均是同一个页面，但/goods/to_list 对于不同的商品返回不同的页面，
    有个 goodsId 参数区分。
+4. 对象级缓存：最小粒度的缓存，涉及到数据更新同时也需要更新缓存
+    - 分布式session中每个token对应一个对象，这是最小粒度的缓存(miaoshaUserService中实现 getByToken 方法(根据 token 获取对象))；
+    - 将miaoshaUserService中 getById 方法也改造成对象级缓存(根据 id 获取对象)
+    - 将miaoshaUserService中 updatePassword 方法也改造成对象级缓存(更新密码) 
+    - 对象级缓存一定要注意如果有数据完成了更新，把缓存也要更新掉，否则会出现数据不一致，这是和页面缓存最大的区别
+    - 自己的Service下调用自己的dao，如 MiaoshaUserService 调用 MiaoshaUserDao，其他的 service 想使用这个 MiaoshaUserDao，
+    需调用 MiaoshaUserService，因为 MiaoshaUserService 涉及到缓存的
+5. 这里的页面级缓存URL 级缓存在controller实现，对象级缓存在service层实现
+6. 压测进行过页面缓存的 /goods/to_list 页面，对比前后 QPS 变化
+
+
+
 
 
 
