@@ -17,7 +17,7 @@
     <script type="text/javascript" th:src="@{/layer/layer.js}"></script>
     <!-- md5.js js -->
     <script type="text/javascript" th:src="@{/js/md5.min.js}"></script>
-    <!-- common.js j -->
+    <!-- common.js -->
     <script type="text/javascript" th:src="@{/js/common.js}"></script>
 
 </head>
@@ -40,7 +40,8 @@
             <td th:text="${goods.goodsPrice}"></td>
             <td th:text="${goods.miaoshaPrice}"></td>
             <td th:text="${goods.stockCount}"></td>
-            <td><a th:href="'/goods/to_detail/' + ${goods.id}">详情</a></td>
+            <!--<td><a th:href="'/goods/to_detail/' + ${goods.id}">详情</a></td>-->
+            <td><a th:href="'/goods_detail.htm?goodsId=' + ${goods.id}">详情</a></td>  <!--商品详情页页面静态化-->
         </tr>
 
     </table>

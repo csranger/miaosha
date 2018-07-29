@@ -355,7 +355,7 @@ CREATE TABLE `miaosha_user` (
    - 手动渲染模版
    - 结果输出
 3. URL 级缓存：和页面缓存几乎一样，区别是页面缓存是没有参数的，大家访问的均是同一个页面，但/goods/to_list 对于不同的商品返回不同的页面，
-   有个 goodsId 参数区分。
+   有个 goodsId 参数区分。例子是 /goods/to_detail/{goodsId}
 4. 对象级缓存：最小粒度的缓存，涉及到数据更新同时也需要更新缓存
     - 分布式session中每个token对应一个对象，这是最小粒度的缓存(miaoshaUserService中实现 getByToken 方法(根据 token 获取对象))；
     - 将miaoshaUserService中 getById 方法也改造成对象级缓存(根据 id 获取对象)
@@ -365,6 +365,18 @@ CREATE TABLE `miaosha_user` (
     需调用 MiaoshaUserService，因为 MiaoshaUserService 涉及到缓存的
 5. 这里的页面级缓存URL 级缓存在controller实现，对象级缓存在service层实现
 6. 压测进行过页面缓存的 /goods/to_list 页面，对比前后 QPS 变化
+
+### 5.2 页面静态化
+1. 把页面缓存到浏览器上，Vue.js Angular.js 等前端技术，页面只存html，动态数据通过接口从服务端获取
+    - 页面静态化本质上就是 静态html + ajax + controller 返回 json
+2. 页面静态化改造商品详情页 goods/detail/{goodsId}
+    - 建一个 GoodsDetailVO 向页面中传值，作为controller返回的json数据:观察  /goods/detail/{goodsId} 页面 controller 就可以发现向 model 中
+    传的值是 GoodsVO goods + int miaoshaStatus + int remainSeconds + MiaoshaUser miaoshaUser；所以将这 4 个作为 GoodsDetailVO 的属性
+    - 使用页面静态化之前在 goods_list 页面中点击<a th:href="'/goods/to_detail/' + ${goods.id}">链接请求这个页面，结合配置文件会
+    去 /templates/ 文件夹下找以 .html 结尾的文件；将其改成 <a th:href="'/goods_detail.htm?goodsId=' + ${goods.id}"> 这样就会跳
+    转到 /static/goods_detail.html 静态页面。利用静态页面中的 ajax 发出请求 /goods/detail/{goodsId} 请求，在GoodsController 获取请
+    求返回 json 结果，利用js将json结果传递到页面
+
 
 
 
