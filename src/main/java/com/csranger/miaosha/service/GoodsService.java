@@ -20,7 +20,7 @@ public class GoodsService {
     }
 
 
-    // 查询某个秒杀商品：商品详情页需要
+    // GoodsVO 商品列表页所需数据
     public GoodsVO getGoodsVOByGoodsId(Long goodsId) {
         return goodsDao.getGoodsVOByGoodsId(goodsId);
     }

@@ -1,11 +1,12 @@
 # 一、核心技术栈
-1. spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter
+1. spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter + jquery + ajax
 2. 两次 md5 入库
 3. jsr303 参数校验
 4. 全局异常处理：@ControllerAdvice + @ExceptionHandler
 5. 分布式 session (redis 实现)
 6. Jmeter 模拟多用户同时进行秒杀比较优化前后QPS
 7. 页面级缓存+URL级缓存+对象级缓存
+8. 页面静态化与前后端分离: 静态html + ajax + controller 返回 json
 
 
 # 二、如何使用
@@ -369,15 +370,106 @@ CREATE TABLE `miaosha_user` (
 ### 5.2 页面静态化
 1. 把页面缓存到浏览器上，Vue.js Angular.js 等前端技术，页面只存html，动态数据通过接口从服务端获取
     - 页面静态化本质上就是 静态html + ajax + controller 返回 json
+    - 静态html一些事件触发 ajax 请求到服务端，返回 json，利用 DOM 修改页面
 2. 页面静态化改造商品详情页 goods/detail/{goodsId}
-    - 建一个 GoodsDetailVO 向页面中传值，作为controller返回的json数据:观察  /goods/detail/{goodsId} 页面 controller 就可以发现向 model 中
-    传的值是 GoodsVO goods + int miaoshaStatus + int remainSeconds + MiaoshaUser miaoshaUser；所以将这 4 个作为 GoodsDetailVO 的属性
     - 使用页面静态化之前在 goods_list 页面中点击<a th:href="'/goods/to_detail/' + ${goods.id}">链接请求这个页面，结合配置文件会
     去 /templates/ 文件夹下找以 .html 结尾的文件；将其改成 <a th:href="'/goods_detail.htm?goodsId=' + ${goods.id}"> 这样就会跳
-    转到 /static/goods_detail.html 静态页面。利用静态页面中的 ajax 发出请求 /goods/detail/{goodsId} 请求，在GoodsController 获取请
-    求返回 json 结果，利用js将json结果传递到页面
+    转到 /static/goods_detail.html 静态页面。然后静态页面利用 ajax 发出请求 /goods/detail/{goodsId} 请求，在GoodsController 获取请
+    求返回 json 结果，最后利用js将 json 结果传递到页面
+    - 建一个 GoodsDetailVO 向页面中传值，作为controller返回的json数据:观察  /goods/detail/{goodsId} 页面 controller 就可以发现向 model 中
+    传的值是 GoodsVO goods + int miaoshaStatus + int remainSeconds + MiaoshaUser miaoshaUser；所以将这 4 个作为 GoodsDetailVO 的属性
+3. 页面静态化改造秒杀
+    - 使用页面静态化之前在 goods_detail 页面点击秒杀表单向 /miaosha/do_miaosha 发送请求，传递一个 商品id，返回渲染后的 order_detail 页面
+    - 页面静态化 在 goods_detail 页面点击秒杀触发点击事件，利用ajax向 /miaosha/do_miaosha 发送请求获取返回的 json 对象 Result<OrderInfo>，
+    跳转到订单详情页。
+4. 页面静态化使得再次向服务端请求这些页面时，浏览器会给服务端传递一个if-Modified-since参数，服务端会检查页面是否发生变化，如果没有变化(静态页面无变化)，就
+   返回304(304状态码表示客户端已经执行了GET，但文件未变化)，浏览器就可以直接使用本地缓存数据，只需要请求 json 对象。但是这里依然有询问服务端页面是否有变化。
+5. 使用 spring 静态文件配置让浏览器不再询问服务端，直接从缓存取数据。然后请求 json 对象
+    - spring.resources.cache.period=3600s 配置表示缓存存在时间3600s，直接返回页面200状态码
+    - 会发现请求头有 Cache-Control:max-age=3600   指定缓存多久
+    - 浏览器请求头：Cache-Control:max-age<=0表示每次请求都会访问服务器并通过Last-Modified确定文件是否已修改，若已修改，返回最新文件，
+    否则返回304读取缓存文件。Cache-Control:max-age>0表示直接读取缓存。Cache-Control:no cache表示总是请求服务器最新文件，无304。 
+6. 页面静态化改造订单详情页
+    - 页面静态化之前，在商品详情页点击秒杀按钮，向服务端POST发送商品id表单，成功后返回orderInfo,goodsVO渲染order_detail页面
+    - 静态化之后，在商品详情页点击秒杀按钮触发ajax，向miaosha/do_miaosha发送秒杀请求，成功(秒杀成功意味着减库存->生成订单->数据库插入秒杀订单)
+    后跳转到订单详情静态页面并有请求参数?orderId=...。商品详情页ajax发起 /order/detail 请求，得到 Result<OrderDetailVO>，然后修改 order_detail 页面
+7. 页面静态化就是 (1)先打开一个静态页面 (2)利用ajax想服务端发送请求，获取页面所需数据 (3)服务端返回页面所需数据，可能需要创建页面所需数据的
+   对象，例如 GoodsDetailVO，OrderDatailVO 那么服务端返回 json 数据 Result<GoodsDetailVO> (4)js 利用返回的json数据修改页面
+8. OrderController info 方法上注解 @NeedLogin，拦截器里判断有这个标签的话如果 miaoshaUser 为 null，直接返回 result.error(CodeMsg.SESSION_ERROR) 
+   所以需要controller中需要判断用户是否登陆的方法都可以加上这个注解，避免每个方法都重复判断 miaoshaUser 是否为 null
+   - 拦截器理解成用户发起请求到controller相应方法前，预先可以做一些事，前面的从
+   - 参考 http://www.cnblogs.com/Profound/p/9010948.html
 
-
+### 5.3 卖超问题和一个用户秒杀多个商品
+1. 卖超问题：在使用 jmeter 压测时发现秒杀商品卖的比存货数量大
+    ```
+        @RequestMapping(value = "do_miaosha", method = RequestMethod.POST)
+        @ResponseBody
+        public Result<OrderInfo> miaosha(MiaoshaUser miaoshaUser, Model model, @RequestParam("goodsId") long goodsId) {
+            logger.info("MiaoshaController 正在处理 /miaosha/do_miaoha 请求......   goodsId: " + goodsId);
+            // 1. 限制条件，如果用户没登陆，反复登陆页面
+            if (miaoshaUser == null) {
+                return Result.error(CodeMsg.SESSION_ERROR);
+            }
+            // 2. 判断是否有库存：如果此 goodsId 对应商品没有库存
+            GoodsVO goods = goodsService.getGoodsVOByGoodsId(goodsId);                                                // GoodsVO good
+            int stockCount = goods.getStockCount();
+            if (stockCount <= 0) {
+                return Result.error(CodeMsg.MIAOSHA_OVER);
+            }
+            // 3. 判断是否已经秒杀：如果已经秒杀过了
+            MiaoshaOrder miaoshaOrder = orderService.getMiaoshaOrderByUserIdGoodsId(miaoshaUser.getId(), goodsId);   // MiaoshaUser user
+            if (miaoshaOrder != null) {
+                model.addAttribute("errmsg", CodeMsg.REPEATE_MIAOSHA.getMsg());
+                return Result.error(CodeMsg.REPEATE_MIAOSHA);
+            }
+            // 4. 进行秒杀：(1)减库存 -> (2)生成订单 -> (3)数据库插入秒杀订单  这三个步骤需要 事务管理
+            OrderInfo orderInfo = miaoshaService.miaosha(miaoshaUser, goods);
+            return Result.success(orderInfo);
+        }
+    ```
+    ```
+    public class MiaoshaService {
+        @Autowired
+        private GoodsService goodsService;
+    
+        @Autowired
+        private OrderService orderService;
+    
+        // 进行秒杀：(1)减库存 -> (2)数据库插入生成的秒杀订单与订单
+        @Transactional
+        public OrderInfo miaosha(MiaoshaUser user, GoodsVO goods) {
+            // (1)减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
+            goodsService.reduceStock(goods);
+            // (2)生成订单:即在 order_info 和 miaosha_order 表中插入一条记录
+            // miaosha_order 是 order_info 子集，只包含参加秒杀活动的商品订单
+            return orderService.createOrder(user, goods);
+        }
+    }
+    ```
+    ```
+    public interface GoodsDao {
+        // 更新:减库存，更新 miaosha_user 表中的 stockCount
+        @Update("update miaosha_goods set stock_count = stock_count - 1 where goods_id = #{goodsId}")
+        int reduceStock(MiaoshaGoods mg);
+    }
+    ```
+    - 秒杀需要先判断是否有库存，当库存数量为1时，如果有多个用户发起秒杀请求，此时有库存，这些用户均进入 MiaoshaService 的 
+    miaosha(MiaoshaUser user, GoodsVO goods) 方法，GoodsDao 的 reduceStock 方法，执行 sql 语句。结果就会使得卖超。
+    - 解决方法：update miaosha_goods set stock_count = stock_count - 1 where goods_id = #{goodsId} and stock_count > 0
+2. 单个用户秒杀多个商品：当库存多于 2 个时。同一个用户同时发起两次秒杀请求，就会出现这种情况
+    - 利用数据库的唯一索引，在插入生成的 秒杀订单(miaosha_order不是order_info，后者订单是可以单个用户多次购买商品的) 时利用 
+    商品id 和 用户 只能存在一个的条件插入不了第二条记录，由于 事务管理 就会回滚减库存操作
+    - 解决方法：在 miaosha_order 表上建立一个唯一索引 UNIQUE KEY `u_uid_gid` (`user_id`,`goods_id`)
+3. 缓存下秒杀订单，在 OrderService 下的 createOrder 里生成 订单和秒杀订单，缓存到redis中，当在getMiaoshaOrderByUserIdGoodsId方法
+   中取就可以不用访问数据库了。可以发现 Controller 里有 redisService 属性的用于页面缓存，Service 类里有 redisService 属性的用于对象缓存
+4. 压测下 是否还出现卖超等问题     jmeter -n -t yace4.jmx -l result.jtl 命令行压测 或者 直接在本地运行程序 注意是 post 请求
+    - 1000线程用户，循环10次，线程数太大本地会溢出。
+    - goodsId=2的商品秒杀库存为500
+    - 秒杀压测后还要压测需要情况redis和mysql中数据 flushdb；然后使用 UserUtil 命令先登录这1000用户；在进行压测。这里多了个清理redis，是因为
+    订单缓存到了redis中
+    - 结果：QPS：3103.7/s  卖了544份，虽然 miaosha_goods 的库存并没有变负数，是0，但是 order_info 的订单数为 544。
+5. 后面重点优化 秒杀
 
 
 

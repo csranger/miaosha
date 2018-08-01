@@ -25,12 +25,12 @@ public class MiaoshaService {
     @Autowired
     private OrderService orderService;
 
-    // 进行秒杀：(1)减库存 -> (2)生成订单 -> (3)数据库插入秒杀订单
+    // 进行秒杀：(1)减库存 -> (2)数据库插入生成的秒杀订单与订单
     @Transactional
     public OrderInfo miaosha(MiaoshaUser user, GoodsVO goods) {
         // (1)减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
         goodsService.reduceStock(goods);
-        // (2)生成订单:即在 order_info 和 miaosha_order 表中插入一条记录
+        // (2)数据库插入生成的秒杀订单与订单:即在 order_info 和 miaosha_order 表中插入一条记录
         // miaosha_order 是 order_info 子集，只包含参加秒杀活动的商品订单
         return orderService.createOrder(user, goods);
     }

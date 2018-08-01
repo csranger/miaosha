@@ -24,7 +24,7 @@ public interface GoodsDao {
     GoodsVO getGoodsVOByGoodsId(@Param("goodsId") Long goodsId);
 
     // 更新:减库存，更新 miaosha_user 表中的 stockCount
-    @Update("update miaosha_goods set stock_count = stock_count - 1 where goods_id = #{goodsId}")
+    @Update("update miaosha_goods set stock_count = stock_count - 1 where goods_id = #{goodsId} and stock_count > 0")
     int reduceStock(MiaoshaGoods mg);
 
 }

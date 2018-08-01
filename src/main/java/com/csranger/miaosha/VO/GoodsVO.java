@@ -5,8 +5,8 @@ import com.csranger.miaosha.model.Goods;
 import java.util.Date;
 
 /**
+ * 商品列表页所需数据
  * 代表秒杀商品，具有商品信息，也具有秒杀信息，理解成 Goods + MiaoshaGoods
- * 用于查询秒杀商品返回的对象
  */
 public class GoodsVO extends Goods {
 

@@ -5,6 +5,8 @@ import com.csranger.miaosha.dao.OrderDao;
 import com.csranger.miaosha.model.MiaoshaOrder;
 import com.csranger.miaosha.model.MiaoshaUser;
 import com.csranger.miaosha.model.OrderInfo;
+import com.csranger.miaosha.redis.OrderKey;
+import com.csranger.miaosha.redis.RedisService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,16 +20,30 @@ public class OrderService {
     @Autowired
     private OrderDao orderDao;
 
+    @Autowired
+    private RedisService redisService;
+
 
     /**
      * 此用户有没有对此商品秒杀成功过，有则返回 秒杀订单
      */
     public MiaoshaOrder getMiaoshaOrderByUserIdGoodsId(long userId, long goodsId) {
-        return orderDao.getMiaoshaOrderByUserIdGoodsId(userId, goodsId);
+//        return orderDao.getMiaoshaOrderByUserIdGoodsId(userId, goodsId);
+        MiaoshaOrder miaoshaOrder = redisService.get(OrderKey.getMiaoshaOrderByUserIdGoodsId, "" + userId + "_" + goodsId, MiaoshaOrder.class);
+        return miaoshaOrder;
+    }
+
+
+
+    /**
+     *  根据 订单id 查询订单
+     */
+    public OrderInfo getOrderById(long orderId) {
+        return orderDao.getOrderById(orderId);
     }
 
     /**
-     * 生成订单:即在 order_info 和 miaosha_order 表中插入一条记录
+     * 数据库插入生成的秒杀订单与订单:即在 order_info 和 miaosha_order 表中插入一条记录
      */
     @Transactional
     public OrderInfo createOrder(MiaoshaUser miaoshaUser, GoodsVO good) {
@@ -47,6 +63,8 @@ public class OrderService {
         miaoshaOrder.setOrderId(orderId);
         miaoshaOrder.setGoodsId(good.getId());
         orderDao.insertMiaoshaOrder(miaoshaOrder);
+
+        redisService.set(OrderKey.getMiaoshaOrderByUserIdGoodsId, "" + miaoshaUser.getId() + "_" + good.getId(), miaoshaOrder);
 
         return orderInfo;
     }

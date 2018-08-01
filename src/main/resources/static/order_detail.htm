@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>订单详情</title>
+
+    <!-- jquery js-->
+    <script type="text/javascript" src="/js/jquery.min.js"></script>
+    <!-- bootstrap css+js-->
+    <link rel="stylesheet" type="text/css" href="/bootstrap/css/bootstrap.min.css"/>
+    <script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+    <!-- jquery-validator js -->
+    <script type="text/javascript" src="/jquery-validation/jquery.validate.min.js"></script>
+    <script type="text/javascript" src="/jquery-validation/localization/messages_zh.min.js"></script>
+    <!-- layer js -->
+    <script type="text/javascript" src="/layer/layer.js"></script>
+    <!-- md5.js js -->
+    <script type="text/javascript" src="/js/md5.min.js"></script>
+    <!-- common.js -->
+    <script type="text/javascript" src="/js/common.js"></script>
+
+
+</head>
+<body>
+
+<div class="panel panel-default">
+    <div class="panel-heading">秒杀订单详情</div>
+    <table class="table" id="goodslist">
+        <tr>
+            <td>商品名称</td>
+            <td id="goodsName" colspan="3"></td>
+        </tr>
+        <tr>
+            <td>商品图片</td>
+            <td colspan="2"><img id="goodsImg" width="200" height="200"></td>
+        </tr>
+        <tr>
+            <td>订单价格</td>
+            <td colspan="2" id="orderPrice"></td>
+        </tr>
+        <tr>
+            <td>下单时间</td>
+            <td id="createTime" colspan="2"></td>
+        </tr>
+        <tr>
+            <td>订单状态</td>
+            <td id="orderStatus"> <!-- 需要判断订单状态显示内容 orderInfo.status -->
+                <!--0-新建未支付 1-已支付 2-已发货 3-已收获 4-已退款 5-已完成-->
+                <!--<span if="${orderInfo.status eq 0}">未支付</span>-->
+                <!--<span if="${orderInfo.status eq 1}">待支付</span>-->
+                <!--<span if="${orderInfo.status eq 2}">已发货</span>-->
+                <!--<span if="${orderInfo.status eq 3}">已收获</span>-->
+                <!--<span if="${orderInfo.status eq 4}">已退款</span>-->
+                <!--<span if="${orderInfo.status eq 5}">已完成</span>-->
+            </td>
+            <td><!--如果未支付，应该有支付按钮，点击按钮应跳转到支付页面-->
+                <button class="btn btn-primary btn-block" type="submit" id="payButton">立即支付</button>
+            </td>
+        </tr>
+        <tr>
+            <td>收货人</td>
+            <td colspan="2">XXX</td>
+        </tr>
+        <tr>
+            <td>收货地址</td>
+            <td colspan="2">上海市</td>
+        </tr>
+
+    </table>
+
+</div>
+
+</body>
+
+<script>
+
+    // 获取订单详情后，
+    $(function () {
+        getOrderDetail();
+    });
+
+    function getOrderDetail() {
+        var orderId = g_getQueryString("orderId");  // 从请求参数里获取orderId的值
+        $.ajax({
+            url: "/order/detail",
+            type: "GET",
+            data: {
+                orderId: orderId
+            },
+            success: function (data) {   // Result<OrderDetailVO>
+                if (data.code == 0) {
+                    console.log(data);
+                    render(data.data);  // 修改静态页面 OrderDetailVO
+                } else {
+                    layer.msg(data.msg + "哈哈");
+                }
+            },
+            error: function () {
+                layer.msg("客户端请求有误");
+            }
+        });
+    }
+
+    function render(data) {   // OrderDetailVO
+        var goodsVO = data.goodsVO;
+
+        var orderInfo = data.orderInfo;
+        $("#goodsName").text(goodsVO.goodsName);
+        $("#goodsImg").attr("src", goodsVO.goodsImg);
+        $("#orderPrice").text(orderInfo.goodsPrice);
+        $("#createTime").text(new Date(orderInfo.createDate).format("yyyy-MM-dd hh:mm:ss"));
+        <!-- 需要判断订单状态 orderInfo.status 0-新建未支付 1-已支付 2-已发货 3-已收获 4-已退款 5-已完成 -->
+        var status = "";
+        if (orderInfo.status == 0) {
+            status = "新建未支付";
+        } else if (orderInfo.status == 1) {
+            status = "已支付";
+        } else if (orderInfo.status == 2) {
+            status = "已发货";
+        } else if (orderInfo.status == 3) {
+            status = "已收获";
+        } else if (orderInfo.status == 4) {
+            status = "已退款";
+        } else {
+            status = "已完成";
+        }
+        $("#orderStatus").text(status);
+    }
+
+
+</script>
+
+</html>

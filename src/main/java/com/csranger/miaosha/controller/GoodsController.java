@@ -163,7 +163,7 @@ public class GoodsController {
 
     // 页面静态化实现 商品详情页 /to_detail/{goodsId}
     // 秒杀商品商品详情页  produces = "text/html" 返回的是html
-    @RequestMapping(value = "/detail/{goodsId}")
+    @RequestMapping(value = "/to_detail/{goodsId}")
     @ResponseBody
     public Result<GoodsDetailVO> detail(MiaoshaUser miaoshaUser, @PathVariable("goodsId") long goodsId) {
 

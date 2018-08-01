@@ -54,10 +54,13 @@
             </td>
             <!-- 表单 : 传入参数 goodsId 进行秒杀，使用 @PathVariable("goodsId") 获取请求参数 -->
             <td>
-                <form id="miaoshaForm" method="post" action="/miaosha/do_miaosha">
-                    <button class="btn btn-primary btn-block" type="submit" id="buyButon">立即秒杀</button>
-                    <input type="hidden" name="goodsId" id="goodsId">
-                </form>
+                <!--<form id="miaoshaForm" method="post" action="/miaosha/do_miaosha">-->
+                <!--<button class="btn btn-primary btn-block" type="submit" id="buyButon">立即秒杀</button>-->
+                <!--<input type="hidden" name="goodsId" id="goodsId">-->
+                <!--</form>-->
+                <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数-->
+                <button class="btn btn-primary btn-block" type="submit" id="buyButon" onclick="doMiaosha()">立即秒杀</button>
+                <input type="hidden" name="goodsId" id="goodsId">
             </td>
         </tr>
 
@@ -91,7 +94,7 @@
     function getDetail() {
         var goodsId = g_getQueryString("goodsId");
         $.ajax({
-            url: "/goods/detail/" + goodsId,
+            url: "/goods/to_detail/" + goodsId,
             type: "GET",
             success: function (data) {   // data是向服务器发送 /goods/detail/{goodsId} 请求返回的json结果即Result.success(goodsDetailVO)
                 if (data.code == 0) {
@@ -100,7 +103,7 @@
                     layer.msg("客户端请求错误");
                 }
             },
-            error: function() {
+            error: function () {
                 layer.msg("客户端请求有误");
             }
         });
@@ -165,6 +168,28 @@
 
         }
 
+    }
+
+    // 鼠标点击时间触发秒杀
+    function doMiaosha() {
+        $.ajax({
+            url: "miaosha/do_miaosha",
+            type: "POST",
+            data: {   // POST 中请求参数，相当于表单数据
+                goodsId: $("#goodsId").val()
+            },
+            // 回调
+            success: function (data) {
+                if (data.code == 0) {   // 秒杀成功，data 表示 MiaoshaController 处理后返回的 json Result<OrderInfo>，跳转到订单详情页面
+                    window.location.href = "/order_detail.htm?orderId=" + data.data.id;
+                } else {
+                    layer.msg(data.msg);
+                }
+            },
+            error: function(){
+                layer.msg("客户端请求有误");
+            }
+        });
     }
 
 

@@ -2,6 +2,10 @@ package com.csranger.miaosha.VO;
 
 import com.csranger.miaosha.model.MiaoshaUser;
 
+/**
+ * goods_detail 静态页面所需要的数据
+ * 类似于 OrderDetailVO
+ */
 public class GoodsDetailVO {
 
     private GoodsVO goodsVO;

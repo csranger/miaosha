@@ -14,6 +14,10 @@ public interface OrderDao {
     @Select("select * from miaosha_order where user_id = #{userId} and goods_id = #{goodsId}")
     MiaoshaOrder getMiaoshaOrderByUserIdGoodsId(@Param("userId") long userId, @Param("goodsId") long goodsId);
 
+    // 根据订单id查询订单
+    @Select("select * from order_info where id = #{orderid}")
+    OrderInfo getOrderById(@Param("orderid") long orderid);
+
 
     /**
      * 生成一个 订单，希望返回订单id
