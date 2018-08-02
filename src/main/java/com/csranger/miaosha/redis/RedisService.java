@@ -38,9 +38,10 @@ public class RedisService {
 
 
     /**
-     * 将字符串转化成一个 Bean 对象
+     * 将 字符串 转化成一个 对象
+     * 作为工具类，rabbitmq 中也会用到
      */
-    public <T> T stringToBean(String s, Class<T> clazz) {
+    public static <T> T stringToBean(String s, Class<T> clazz) {
         if (s == null || s.length() <= 0 || clazz == null) {
             return null;
         }
@@ -84,9 +85,10 @@ public class RedisService {
 
 
     /**
-     * 将任意类型转化成字符串
+     * 将 对象 转化成 字符串
+     * 作为工具类，rabbitmq 中也会用到
      */
-    private <T> String beanToString(T value) {
+    public static <T> String beanToString(T value) {
         if (value == null) {
             return null;
         }

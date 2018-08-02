@@ -471,6 +471,25 @@ CREATE TABLE `miaosha_user` (
     - 结果：QPS：3103.7/s  卖了544份，虽然 miaosha_goods 的库存并没有变负数，是0，但是 order_info 的订单数为 544。
 5. 后面重点优化 秒杀
 
+## 6. 接口优化
+### 6.1 秒杀接口优化
+1. 思路：减少数据库的访问
+    - 系统初始化，把商品库存数量加载到 redis
+    - 收到请求，redis 预减库存，库存不足，直接返回，否则继续
+    - 请求入队，立即返回排队中
+    - 请求出队，生成订单，减少库存
+    - 客户端轮询，是否秒杀成功
+2. 安装好rabbitmq后加入环境变量 ~/.zshrc 文件 export PATH=$PATH:/usr/local/sbin
+    - 启动：rabbitmq-server
+    - 停止：rabbitmqctl stop
+    - web管理页面 http://localhost:15672/ 登录guest 密码guest
+3. spring boot 集成 rabbitmq
+    - 添加 spring-boot-starter-amqp 依赖，进行配置，定义一个 Queue (指的是 MQConfig 中的 @Bean)
+    - 创建消息接收者
+    - 创建消息发送者
+4. 4 种交换机模式 direct topic fanout header
+
+
 
 
 
