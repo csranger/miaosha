@@ -26,7 +26,7 @@ public class SampleController {
     @RequestMapping(value = "/mq/direct")
     @ResponseBody
     public Result<String> mq() {
-        mqSender.send("Hello, mq - direct!");
+        mqSender.sendDirect("Hello, mq - direct!");
         return Result.success("Hello, mq - direct!");
     }
 

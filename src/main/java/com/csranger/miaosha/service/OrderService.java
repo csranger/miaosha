@@ -57,10 +57,10 @@ public class OrderService {
         orderInfo.setOrderChannel(1);  // 1-pc 2-android 3-ios
         orderInfo.setStatus(0);    // 0-新建未支付 1-已支付 2-已发货 3-已收获 4-已退款 5-已完成
         orderInfo.setCreateDate(new Date());
-        long orderId = orderDao.insert(orderInfo);
+        orderDao.insert(orderInfo);
         MiaoshaOrder miaoshaOrder = new MiaoshaOrder();
         miaoshaOrder.setUserId(miaoshaUser.getId());
-        miaoshaOrder.setOrderId(orderId);
+        miaoshaOrder.setOrderId(orderInfo.getId());   // orderInfo 插入时自动生成的 id，通过 SelectKey 返回主键值
         miaoshaOrder.setGoodsId(good.getId());
         orderDao.insertMiaoshaOrder(miaoshaOrder);
 

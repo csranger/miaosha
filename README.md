@@ -4,9 +4,10 @@
 3. jsr303 参数校验
 4. 全局异常处理：@ControllerAdvice + @ExceptionHandler
 5. 分布式 session (redis 实现)
-6. Jmeter 模拟多用户同时进行秒杀比较优化前后QPS
+6. Jmeter 模拟多用户同时发起多次秒杀请求比较优化前后QPS
 7. 页面级缓存+URL级缓存+对象级缓存
-8. 页面静态化与前后端分离: 静态html + ajax + controller 返回 json
+8. 页面静态化与前后端分离: 静态html -> ajax -> controller返回json
+9. redis 预减库存+rabbitmq异步下单
 
 
 # 二、如何使用
@@ -469,26 +470,68 @@ CREATE TABLE `miaosha_user` (
     - 秒杀压测后还要压测需要情况redis和mysql中数据 flushdb；然后使用 UserUtil 命令先登录这1000用户；在进行压测。这里多了个清理redis，是因为
     订单缓存到了redis中
     - 结果：QPS：3103.7/s  卖了544份，虽然 miaosha_goods 的库存并没有变负数，是0，但是 order_info 的订单数为 544。
+    - 原因：如果因为库存不够，减库存失败，但是依然会生成订单。所以需要略微修改下减库存代码
+    ```
+    @Service
+    public class MiaoshaService {
+        @Autowired
+        private GoodsService goodsService;
+        @Autowired
+        private OrderService orderService;
+        // 进行秒杀：(1)减库存 -> (2)数据库插入生成的秒杀订单与订单
+        @Transactional
+        public OrderInfo miaosha(MiaoshaUser user, GoodsVO goods) {
+            // (1)减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
+            goodsService.reduceStock(goods);
+            // (2)数据库插入生成的秒杀订单与订单:即在 order_info 和 miaosha_order 表中插入一条记录
+            // miaosha_order 是 order_info 子集，只包含参加秒杀活动的商品订单
+            return orderService.createOrder(user, goods);
+        }
+    }
+    ```
+    
+    ```
+    @Service
+    public class GoodsService {
+        @Autowired
+        private GoodsDao goodsDao;
+        // 减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
+        public void reduceStock(GoodsVO goods) {
+            MiaoshaGoods mg = new MiaoshaGoods();
+            mg.setGoodsId(goods.getId());     // miaoshaGoods 的商品id 是 goodsId
+            goodsDao.reduceStock(mg);
+        }
+    }
+    ```
+    修改为
+    
+    
 5. 后面重点优化 秒杀
 
 ## 6. 接口优化
-### 6.1 秒杀接口优化
-1. 思路：减少数据库的访问
-    - 系统初始化，把商品库存数量加载到 redis
-    - 收到请求，redis 预减库存，库存不足，直接返回，否则继续
-    - 请求入队，立即返回排队中
-    - 请求出队，生成订单，减少库存
-    - 客户端轮询，是否秒杀成功
-2. 安装好rabbitmq后加入环境变量 ~/.zshrc 文件 export PATH=$PATH:/usr/local/sbin
+### 6.1 rabbitmq集成
+1. 安装好rabbitmq后加入环境变量 ~/.zshrc 文件 export PATH=$PATH:/usr/local/sbin
     - 启动：rabbitmq-server
     - 停止：rabbitmqctl stop
     - web管理页面 http://localhost:15672/ 登录guest 密码guest
-3. spring boot 集成 rabbitmq
+2. spring boot 集成 rabbitmq
     - 添加 spring-boot-starter-amqp 依赖，进行配置，定义一个 Queue (指的是 MQConfig 中的 @Bean)
     - 创建消息接收者
     - 创建消息发送者
-4. 4 种交换机模式 direct topic fanout header
+3. 4 种交换机模式 direct topic fanout headers
 
+### 6.2 redis 预减库存 + rabbitmq 异步下单
+1. 原先的秒杀流程
+    - (1)判断用户是否登陆，没有返回 Result.error(CodeMsg.SESSION_ERROR) (2)判断库存，没有返回Result.error(CodeMsg.CodeMsg.MIAOSHA_OVER)
+    (3)判断该用户是否已经秒杀过了 (4)进行秒杀 (4-1)减库存 (4-2)减库存成功，再生成订单
+    - 注意(4-1)减库存是可能失败的，因为在 MiaoshaController 里如果只有 2 个库存，但是同时有10个请求，此时判断库存是有库存的，所以这10个请求都会进
+    入秒杀步骤，所以减库存成功的话再生成订单
+2. 思路：redis 预减库存使得减少对数据库的访问，rabbitmq 使得原先同步下单改成了异步下单
+    - (1)系统初始化，把 商品id-商品库存数量 加载到 redis
+    - (2)收到秒杀请求，redis 预减库存，库存不足，直接返回，否则继续
+    - (3)秒杀请求压入 rabbitmq 队列，立即返回排队中(无阻塞)，这样客户端就会立马收到响应:所以(4)(5)是并发进行的
+    - (4)服务端秒杀请求出队，生成订单，会把订单写到缓存里，减少库存
+    - (5)客户端发起查询秒杀结果请求，是否秒杀成功，如果是排队中则再次请求
 
 
 

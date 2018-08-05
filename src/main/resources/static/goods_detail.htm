@@ -59,7 +59,8 @@
                 <!--<input type="hidden" name="goodsId" id="goodsId">-->
                 <!--</form>-->
                 <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数-->
-                <button class="btn btn-primary btn-block" type="submit" id="buyButon" onclick="doMiaosha()">立即秒杀</button>
+                <button class="btn btn-primary btn-block" type="submit" id="buyButon" onclick="doMiaosha()">立即秒杀
+                </button>
                 <input type="hidden" name="goodsId" id="goodsId">
             </td>
         </tr>
@@ -179,15 +180,57 @@
                 goodsId: $("#goodsId").val()
             },
             // 回调
-            success: function (data) {
-                if (data.code == 0) {   // 秒杀成功，data 表示 MiaoshaController 处理后返回的 json Result<OrderInfo>，跳转到订单详情页面
-                    window.location.href = "/order_detail.htm?orderId=" + data.data.id;
+            success: function (data) {  // Result.success(0)
+                if (data.code == 0) {
+
+                    // 此时服务端正在取出秒杀信息进行秒杀，所以客户端需要不断请求服务端取出秒杀结果
+                    getMiaoshaResult();
                 } else {
                     layer.msg(data.msg);
                 }
             },
-            error: function(){
+            error: function () {
                 layer.msg("客户端请求有误");
+            }
+        });
+    }
+
+    // 轮询服务端，获取秒杀结果
+    // 成功返回 orderId 失败 -1 排队中 0，如果是排队中则需要再次发送请求
+    function getMiaoshaResult() {
+        g_showLoading();
+        $.ajax({
+            url: "/miaosha/result",
+            type: "GET",
+            data: {
+                goodsId: $("#goodsId").val()
+            },
+            success: function (data) { // data 指 Result.success(result) 对象 orderId:秒杀成功； -1:秒杀失败； 0:排队中，客户端继续轮询
+                if (data.code == 0) {
+                    var result = data.data;   // data.data 指 result：orderId -1 0
+                    if (result < 0) {
+                        layer.msg("对不起，秒杀失败");
+                    } else if (result == 0) {   // 排队中则需要再次发送请求
+                        setTimeout(function () {    // 50ms后再次请求获取秒杀结果
+                            getMiaoshaResult(goodsId);
+                        }, 50)
+
+                    } else {
+                        // 两个按钮，及其对应的回调
+                        layer.confirm("恭喜你，秒杀成功！查看订单？", {btn: ["确定", "取消"]},
+                            function () {
+                            window.location.href="/order_detail.htm?orderId=" + result;
+                            }, function () {
+                            layer.closeAll();
+                            });
+                    }
+
+                } else {
+                    layer.msg(data.msg);
+                }
+            },
+            error: function () {
+                layer.msg("客户端请求有误.")
             }
         });
     }

@@ -26,11 +26,10 @@ public class GoodsService {
     }
 
     // 减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
-    public void reduceStock(GoodsVO goods) {
+    public boolean reduceStock(GoodsVO goods) {
         MiaoshaGoods mg = new MiaoshaGoods();
-        mg.setGoodsId(goods.getId());     // miaoshaGoods 的商品id 是 goodsId
-        goodsDao.reduceStock(mg);
-
+        mg.setGoodsId(goods.getId());
+        return goodsDao.reduceStock(mg) > 0;  // false表明减库存失败，这时就不应该生成订单了
     }
 
 }

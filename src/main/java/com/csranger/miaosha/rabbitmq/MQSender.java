@@ -21,17 +21,15 @@ public class MQSender {
     @Autowired
     private AmqpTemplate amqpTemplate;
 
-    @Autowired
-    private RedisService redisService;
 
 
     /**
      * 1. Direct 模式
      * 指定向名为 DIRECT_QUEUE 的队列发送数据
      */
-    public void send(Object message) {
+    public void sendDirect(Object message) {
         // 对象转化成字符串，之前 redis 中写过 beanToString 方法，利用 fastjson 依赖
-        String msg = redisService.beanToString(message);
+        String msg = RedisService.beanToString(message);
         log.info("send message: " + message);
         amqpTemplate.convertAndSend(MQConfig.DIRECT_QUEUE, msg);   // 指定发送到哪个 Queue
     }
@@ -42,7 +40,7 @@ public class MQSender {
      */
     public void sendTopic(Object message) {
         // 对象转化成字符串，之前 redis 中写过 beanToString 方法，利用 fastjson 依赖
-        String msg = redisService.beanToString(message);
+        String msg = RedisService.beanToString(message);
         log.info("send topic message: " + message);
         amqpTemplate.convertAndSend(MQConfig.TOPIC_EXCHANGE, "topic.key1", msg + 1);
         amqpTemplate.convertAndSend(MQConfig.TOPIC_EXCHANGE, "topic.key2", msg + 2);
@@ -53,17 +51,17 @@ public class MQSender {
      * 3. Fanout 模式(广播模式) 交换机Exchange
      */
     public void sendFanout(Object message) {
-        String msg = redisService.beanToString(message);
+        String msg = RedisService.beanToString(message);
         log.info("send fanout message: " + message);
         amqpTemplate.convertAndSend(MQConfig.FANOUT_EXCHANGE, "", msg);
     }
 
 
     /**
-     * 4. Headers 模式(广播模式) 交换机Exchange
+     * 4. Headers 模式 交换机Exchange
      */
     public void sendHeaders(Object message) {
-        String msg = redisService.beanToString(message);
+        String msg = RedisService.beanToString(message);
         log.info("send headers message: " + message);
         //  传 Message 对象
         MessageProperties messageProperties = new MessageProperties();
@@ -71,6 +69,16 @@ public class MQSender {
         messageProperties.setHeader("headers2", "value2");
         Message obj = new Message(msg.getBytes(), messageProperties);
         amqpTemplate.convertAndSend(MQConfig.HEADERS_EXCHANGE, "", obj);
+    }
+
+
+    // 使用 Direct 模式发送秒杀信息
+    public void sendMiaoshaMessage(MiaoshaMessage miaoshaMessage) {
+        // 对象转化成字符串，之前 redis 中写过 beanToString 方法，利用 fastjson 依赖
+        String message = RedisService.beanToString(miaoshaMessage);
+        log.info("send message: " + message);
+        // 放入名为 DIRECT_QUEUE 的队列
+        amqpTemplate.convertAndSend(MQConfig.MIAOSHA_QUEUE, message);
     }
 
 }

@@ -25,6 +25,8 @@ public class MQConfig {
     public static final String HEADERS_QUEUE = "headers.queue";      // Headers 队列名
     public static final String HEADERS_EXCHANGE = "headersExchange"; // Headers 广播的交换机名
 
+    public static final String MIAOSHA_QUEUE = "miaosha.queue";       // 秒杀 queue 队列
+
 
 
 
@@ -39,6 +41,14 @@ public class MQConfig {
     @Bean
     public Queue directQueue() {
         return new Queue(DIRECT_QUEUE, true);
+    }
+
+    /**
+     * 秒杀队列Queue， Direct 模式
+     */
+    @Bean
+    public Queue miaoshaQueue() {
+        return new Queue(MIAOSHA_QUEUE, true);
     }
 
 
