@@ -46,7 +46,7 @@ public class MiaoshaService {
             // 库存没了，标记该商品秒杀卖完了：在redis中插入 goodsId -> true(商品卖完)
             // 重要，当客户端请求秒杀结果时，用于区分是在排队还是秒杀失败
             setGoodsOver(goods.getId());
-            return null;    // 我感觉这里应该抛出异常更好，throw new GlobalException(CodeMsg.MIAOSHA_OVER)
+            return null;    // throw new GlobalException(CodeMsg.MIAOSHA_OVER)
         }
     }
 

@@ -467,7 +467,7 @@ CREATE TABLE `miaosha_user` (
 4. 压测下 是否还出现卖超等问题     jmeter -n -t yace4.jmx -l result.jtl 命令行压测 或者 直接在本地运行程序 注意是 post 请求
     - 1000线程用户，循环10次，线程数太大本地会溢出。
     - goodsId=2的商品秒杀库存为500
-    - 秒杀压测后还要压测需要情况redis和mysql中数据 flushdb；然后使用 UserUtil 命令先登录这1000用户；在进行压测。这里多了个清理redis，是因为
+    - 秒杀压测前需要清空redis和mysql中数据 flushdb；然后使用 UserUtil 命令先登录这1000用户；在进行压测。这里多了个清理redis，是因为
     订单缓存到了redis中
     - 结果：QPS：3103.7/s  卖了544份，虽然 miaosha_goods 的库存并没有变负数，是0，但是 order_info 的订单数为 544。
     - 原因：如果因为库存不够，减库存失败，但是依然会生成订单。所以需要略微修改下减库存代码
@@ -564,7 +564,22 @@ CREATE TABLE `miaosha_user` (
             return Result.success(0);   // 秒杀请求压入 rabbitmq 队列，立即返回，无阻塞
         }
     ```
-
+4. 注意到Service层中 MQReceiver 中的 receiveMiaoshaQueue 方法 和 miaoshaService 中的 miaosha 方法均没有抛出异常进行处理。
+    - 之前的 Service 中方法抛出异常，这是因为这些Service中方法在controller里使用了，异常会传递到controller层。统一异常处理使用
+     @ControllerAdvice + @ExceptionHandler 进行全局的 Controller 层异常处理，这样这些异常就会捕获，异常捕获处理返回的类型和
+     controller层一样均是Result类型。
+    - MQReceiver 这个Service层的类并没有被controller中类引用。因为异步使用它的。miaoshaService 中的 miaosha 方法也是在 MQReceiver
+    中被调用。
+5. jmeter 压测            jmeter -n -t yace4.jmx -l result.jtl 命令行压测 或者 直接在本地运行程序 注意是 post 请求
+    - 1000线程用户，循环10次，线程数太大本地会溢出。goodsId=2的商品秒杀库存为500
+    - 秒杀压测前还要清空 mysql 的订单数据 和 redis的全部缓存 flushdb；将库存调为 500
+    - 然后启动 springboot 系统启动时就把商品库存数量加载到 redis:每个秒杀商品id是键，对应商品的库存是值 同时利用 localOverMap 在本
+    地标记每个商品有库存，可秒杀的
+    - 接着使用 UserUtil 命令先登录这1000用户，在redis 中缓存这1000用户的 token
+    - 进行压测
+    - 结果：QPS：3518.6/s  卖了 499 份，miaosha_goods 的库存并没有变负数，是 1。推测是因为同一时刻某个用户发起多个请求，后面的请求无法秒杀
+    但是redis的库存已经减了，所以有1个没卖出去。
+    - 如何解决？(1)卖超是不允许的，但是卖不完是允许的。(2)初始化的时候 商品数量比库存多一点就好了
 
 
 
