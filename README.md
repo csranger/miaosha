@@ -532,7 +532,38 @@ CREATE TABLE `miaosha_user` (
     - (3)秒杀请求压入 rabbitmq 队列，立即返回排队中(无阻塞)，这样客户端就会立马收到响应:所以(4)(5)是并发进行的
     - (4)服务端秒杀请求出队，生成订单，会把订单写到缓存里，减少库存
     - (5)客户端发起查询秒杀结果请求，是否秒杀成功，如果是排队中则再次请求
-
+3. 进一步优化减少对 redis 的请求
+    - 秒杀过程中，服务端的请求首先在 redis 中查看所秒杀商品的库存，如果库存 stock < 0，直接返回就不用去访问数据库了，问题上商品库存没了，
+    客户端依然会大量请求redis
+    - 在 MiaoController 里加上个本地标识 goodsID -> true/false ： 商品 -> 此商品秒杀是否结束了
+    ```
+    @RequestMapping(value = "/do_miaosha", method = RequestMethod.POST)
+        @ResponseBody
+        public Result<Integer> miaosha(MiaoshaUser miaoshaUser, @RequestParam("goodsId") long goodsId) {
+            logger.info("用户 " + miaoshaUser.getId() + " 正在秒杀，秒杀商品的id是 " + goodsId);
+    
+            if (miaoshaUser == null) {
+                return Result.error(CodeMsg.SESSION_ERROR);
+            }
+            // 2. 收到请求，redis 预减库存，库存不足，直接返回，否则继续；返回的是剩下的库存
+            // 可能会出现单个用户同时发起多个请求，减库存了，但是真正生成订单的只有1个，这可以通过验证码防止，另外卖超是不允许的，卖不完是允许的
+            long stock = redisService.decr(GoodsKey.getMiaoshaGoodsStock, "" + goodsId);
+            if (stock < 0) {
+                return Result.error(CodeMsg.MIAOSHA_OVER);
+            }
+            // 判断是否秒杀过了：根据 userId 和 goodsId 查询是否有订单存在
+            MiaoshaOrder miaoshaOrder = orderService.getMiaoshaOrderByUserIdGoodsId(miaoshaUser.getId(), goodsId);
+            if (miaoshaOrder != null) {
+                return Result.error(CodeMsg.REPEATE_MIAOSHA);
+            }
+            // 3. 秒杀请求压入 rabbitmq 队列，立即返回排队中(无阻塞)
+            MiaoshaMessage miaoshaMessage = new MiaoshaMessage();
+            miaoshaMessage.setGoodsId(goodsId);
+            miaoshaMessage.setMiaoshaUser(miaoshaUser);
+            mqSender.sendMiaoshaMessage(miaoshaMessage);
+            return Result.success(0);   // 秒杀请求压入 rabbitmq 队列，立即返回，无阻塞
+        }
+    ```
 
 
 

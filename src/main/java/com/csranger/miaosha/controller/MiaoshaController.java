@@ -25,7 +25,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping(value = "/miaosha")
@@ -50,6 +52,10 @@ public class MiaoshaController implements InitializingBean {
 
     @Autowired
     private MQSender mqSender;
+
+    // goodsID -> true/false ： 商品 -> 此商品秒杀是否结束了
+    // 目的：当秒杀商品库存没了，但是后来的秒杀请求还是不断的访问 redis，减少对redis 的访问
+    private Map<Long, Boolean> localOverMap = new HashMap<Long, Boolean>();
 
 
 // 执行秒杀功能：点击秒杀按钮，发送一个含有 商品id 的表单到 /goods/do_miaosha 页面
@@ -90,12 +96,14 @@ public class MiaoshaController implements InitializingBean {
     @Override
     public void afterPropertiesSet() throws Exception {
         // 1. 系统启动时就把商品库存数量加载到 redis:每个秒杀商品id是键，对应商品的库存是值
+        // 同时利用 localOverMap 在本地标记每个商品有库存，可秒杀的
         List<GoodsVO> goodsVOList = goodsService.listGoodsVO();
         if (goodsVOList == null) {
             return;
         }
         for (GoodsVO goodsVO : goodsVOList) {
             redisService.set(GoodsKey.getMiaoshaGoodsStock, "" + goodsVO.getId(), goodsVO.getStockCount());
+            localOverMap.put(goodsVO.getId(), false);   // 商品标记此商品秒杀没有结束
         }
 
     }
@@ -108,10 +116,18 @@ public class MiaoshaController implements InitializingBean {
         if (miaoshaUser == null) {
             return Result.error(CodeMsg.SESSION_ERROR);
         }
+
+        // 本地缓存记录商品是否秒杀结束：减少秒杀库存没了后之后的用户依然发起秒杀请求对redis的访问
+        boolean over = localOverMap.get(goodsId);
+        if (over) {
+            return Result.error(CodeMsg.MIAOSHA_OVER);
+        }
+
         // 2. 收到请求，redis 预减库存，库存不足，直接返回，否则继续；返回的是剩下的库存
         // 可能会出现单个用户同时发起多个请求，减库存了，但是真正生成订单的只有1个，这可以通过验证码防止，另外卖超是不允许的，卖不完是允许的
         long stock = redisService.decr(GoodsKey.getMiaoshaGoodsStock, "" + goodsId);
         if (stock < 0) {
+            localOverMap.put(goodsId, true);
             return Result.error(CodeMsg.MIAOSHA_OVER);
         }
         // 判断是否秒杀过了：根据 userId 和 goodsId 查询是否有订单存在
