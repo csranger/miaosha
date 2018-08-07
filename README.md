@@ -494,6 +494,7 @@ CREATE TABLE `miaosha_user` (
     ```
     @Service
     public class GoodsService {
+        ...
         @Autowired
         private GoodsDao goodsDao;
         // 减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
@@ -505,7 +506,38 @@ CREATE TABLE `miaosha_user` (
     }
     ```
     修改为
+    ```
+        @Transactional
+        public OrderInfo miaosha(MiaoshaUser user, GoodsVO goods) {
+            // (1)减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
+            // 虽然 MiaoshaController 里已经在 MiaoshaController 里检查了是否有库存，但可能发生多个请求同时检查库存，例如库存为2，同时有10个请求，
+            // 这时有库存，但实际数据库操作就会减库存失败8次，因此这8次不可以生成订单，因为库存没了
+            boolean success = goodsService.reduceStock(goods);
+            // (2)数据库插入生成的秒杀订单与订单:即在 order_info 和 miaosha_order 表中插入一条记录
+            // miaosha_order 是 order_info 子集，只包含参加秒杀活动的商品订单
+            if (success) {
+                return orderService.createOrder(user, goods);
+            } else {
+                // 库存没了，标记该商品秒杀卖完了：在redis中插入 goodsId -> true(商品卖完)
+                // 重要，当客户端请求秒杀结果时，用于区分是在排队还是秒杀失败
+                setGoodsOver(goods.getId());
+                return null;    // throw new GlobalException(CodeMsg.MIAOSHA_OVER)
+            }
+        }
+    ```
+    ```
+    @Service
+    public class GoodsService {
+        ...
+        // 减库存：在 miaosha_goods 表中更新 stockCount 的值，减1
+        public boolean reduceStock(GoodsVO goods) {
+            MiaoshaGoods mg = new MiaoshaGoods();
+            mg.setGoodsId(goods.getId());
+            return goodsDao.reduceStock(mg) > 0;  // false表明减库存失败，这时就不应该生成订单了
+        }
     
+    }
+    ```
     
 5. 后面重点优化 秒杀
 
@@ -599,6 +631,7 @@ CREATE TABLE `miaosha_user` (
 "/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val()) ，对这个url的请求会返回一个验证码图片，同时将答案展示缓存到redis中。当在
 验证码输入框输入验证值后点击秒杀按钮会同时将这个结果作为请求参数，和redis中缓存的进行对比。正确得啊则请求到秒杀地址，然后秒杀。
 
+### 6.3 接口限流防刷
 
 
 

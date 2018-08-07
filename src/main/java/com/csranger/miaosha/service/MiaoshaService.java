@@ -93,7 +93,7 @@ public class MiaoshaService {
         redisService.set(MiaoshaKey.isGoodsOver, "" + goodsId, true);
     }
 
-    // 2.2
+    // #2.2
     // 查看 redis 中是否标记此商品卖完
     private boolean getGoodsOver(long goodsId) {
         return redisService.exists(MiaoshaKey.isGoodsOver, "" + goodsId);
