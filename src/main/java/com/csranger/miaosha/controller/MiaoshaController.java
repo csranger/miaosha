@@ -25,6 +25,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import javax.imageio.ImageIO;
+import javax.servlet.http.HttpServletResponse;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,23 +113,62 @@ public class MiaoshaController implements InitializingBean {
 
     }
 
+
     /**
-     * 秒杀地址隐藏：点击秒杀按钮，现获取秒杀地址
+     * BufferedImage ，代表着有数学表达式的验证码图片，通过 HttpServletResponse 的 outputStream 返回到客户端
+     */
+    @RequestMapping(value = "/verifyCodeImage", method = RequestMethod.GET)
+    @ResponseBody
+    public Result<String> getMiaoshaVerifyCodeImage(MiaoshaUser miaoshaUser,
+                                                      @RequestParam("goodsId") long goodsId,
+                                                      HttpServletResponse response) {
+        logger.info("正在进行验证码验证");
+        if (miaoshaUser == null) {
+            return Result.error(CodeMsg.SESSION_ERROR);
+        }
+        // 生成验证码图片：将一个数学表达式写在验证码图片上，同时将计算结果缓存到 redis，返回这个图片
+        // miaoshaUser, goodsId是用来作为验证码答案存在 redis 的键
+        // 注意这里使用的是 response 的 outputStream 将这个图片返回到客户端的，所以 return null
+        try {
+            BufferedImage image = miaoshaService.createVerifyCodeImage(miaoshaUser, goodsId);
+            OutputStream out = response.getOutputStream();
+            ImageIO.write(image, "JPEG", out);
+            return null;
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+            return Result.error(CodeMsg.MIAOSHA_FAIL);
+        }
+    }
+
+    /**
+     * 秒杀地址隐藏：点击秒杀按钮，先对比验证码，验证码正确的话再获取秒杀地址
      * 生成一个随机数，返回给客户端，客户端立即请求/miaosha/{psth}/do_miaosha，才可进行秒杀：这样就隐藏了秒杀路径
      */
     @RequestMapping(value = "/path", method = RequestMethod.GET)
     @ResponseBody
-    public Result<String> getMiaoshaPath(MiaoshaUser miaoshaUser, @RequestParam("goodsId") long goodsId) {
+    public Result<String> getMiaoshaPath(MiaoshaUser miaoshaUser,
+                                         @RequestParam("goodsId") long goodsId,
+                                         @RequestParam("verifyCode") int verifyCode) {
         logger.info("正在获取秒杀地址");
         if (miaoshaUser == null) {
             return Result.error(CodeMsg.SESSION_ERROR);
         }
+
+        // 验证码是否正确: miaoshaUser, goodsId 是为了从 redis 中取出答案和 verifyCode 进行对比
+        boolean check = miaoshaService.checkVerifyCode(miaoshaUser, goodsId, verifyCode);
+        if (!check) {
+            return Result.error(CodeMsg.REQUEST_ILLEGAL);
+        }
+
         // 生成一个随机数作为秒杀请求地址，返回给客户端，客户端才知道秒杀地址请求秒杀 + 将这个随机值暂时缓存在 redis，以确认秒杀地址是否正确
         String path = miaoshaService.createPath(miaoshaUser, goodsId);
 
         return Result.success(path);
     }
 
+    /**
+     * 进行秒杀
+     */
     @RequestMapping(value = "/{path}/do_miaosha", method = RequestMethod.POST)
     @ResponseBody
     public Result<Integer> miaosha(MiaoshaUser miaoshaUser,

@@ -45,22 +45,24 @@
             <td colspan="3"><img id="goodsImg" width="200" height="200"/></td>
         </tr>
 
-        <tr>                                  <!--第 3 行-->
-            <td>秒杀开始时间</td>
-            <td id="startTime"></td>
-            <td>
+        <tr>                         <!-- 第 3 行 -->
+            <td>秒杀开始时间</td>      <!-- 第 1 列 秒杀开始时间 -->
+            <td id="startTime"></td> <!-- 第 2 列 秒杀开始时间具体值-->
+            <td>                     <!-- 第 3 列 显示内容根据秒杀剩余时间分情况：显示剩余时间的倒计时；显示秒杀进行中；显示秒杀已结束-->
                 <input type="hidden" id="remainSeconds">
-                <span id="miaoshaTip"></span><!--分情况，如果秒杀没开始则显示倒计时... 具体见 countDown 函数-->
+                <span id="miaoshaTip"></span>
             </td>
-            <!-- 表单 : 传入参数 goodsId 进行秒杀，使用 @PathVariable("goodsId") 获取请求参数 -->
-            <td>
-                <!--<form id="miaoshaForm" method="post" action="/miaosha/do_miaosha">-->
-                <!--<button class="btn btn-primary btn-block" type="submit" id="buyButon">立即秒杀</button>-->
-                <!--<input type="hidden" name="goodsId" id="goodsId">-->
-                <!--</form>-->
-                <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数--> <!--安全起见点击秒杀按钮先去获取秒杀地址-->
-                <button class="btn btn-primary btn-block" type="submit" id="buyButon" onclick="getMiaoshaPath()">立即秒杀
-                </button>
+            <td>                    <!-- 第 4 列 根据秒杀剩余时间分情况：秒杀按钮disable+不显示验证码；按钮able+显示验证码；按钮disable+不显示验证码-->
+                <div class="row">
+                    <div class="form-inline">   <!-- 将以下三个元素放在同一行 -->
+                        <!--图形验证码，默认不显示，仅当秒杀开始时才显示-->
+                        <img id="verifyCodeImg" width="90" height="32" style="display:none" onclick="refreshVarifyCode()"/>
+                        <!-- 验证码输入框 -->
+                        <input id="verifyCode" class="form-control" style="display:none" />
+                        <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数--> <!--安全起见点击秒杀按钮先去获取秒杀地址-->
+                        <button class="btn btn-primary" type="submit" id="buyButton" onclick="getMiaoshaPath()">立即秒杀</button>
+                    </div>
+                </div>
                 <input type="hidden" name="goodsId" id="goodsId">
             </td>
         </tr>
@@ -89,17 +91,19 @@
 
     $(function () {
         // 在 goods_list 页面点击获取 商品详情页的静态页面 goods_detail.html后，向服务器发送 /goods/detail/{goodsId} 请求，得到 json 数据，这样就可以大幅减少传输
+        // 利用得到的 json 数据渲染此页面。然后进行倒计时。
         getDetail();
     });
 
+    // 静态页面请求此页面所需要的json数据
     function getDetail() {
         var goodsId = g_getQueryString("goodsId");
         $.ajax({
             url: "/goods/to_detail/" + goodsId,
             type: "GET",
-            success: function (data) {   // data是向服务器发送 /goods/detail/{goodsId} 请求返回的json结果即Result.success(goodsDetailVO)
+            success: function (data) {   // data是 Result.success(goodsDetailVO)
                 if (data.code == 0) {
-                    render(data.data);    // 根据服务端返回的json数据将页面渲染出来 date.data 是 goodsDetailVO 对象
+                    render(data.data);    // date.data 是 goodsDetailVO 对象
                 } else {
                     layer.msg("客户端请求错误");
                 }
@@ -134,16 +138,18 @@
         countDown();
     }
 
-
+    // 进行倒计时
     // 根据 remainSeconds 的值决定 #remainSeconds 中显示效果：是否显示倒计时等
     function countDown() {
         var remainSeconds = $("#remainSeconds").val();
         console.log("remainSeconds: " + remainSeconds);
         var timeout;
-        // 1. 秒杀还没开始，倒计时
+        // 1. 秒杀还没开始，倒计时：秒杀按钮disable + 不显示验证码
         if (remainSeconds > 0) {
             // 1.1 秒杀按钮无法点击
-            $("#buyButon").attr("disabled", true);
+            $("#buyButton").attr("disabled", true);
+            $("#verifyCodeImg").hide();
+            $("#verifyCode").hide();
             // 1s 后回调这个函数
             timeout = setTimeout(function () {
                 // 1.2 倒计时
@@ -155,20 +161,34 @@
             }, 1000);
 
 
-        } else if (remainSeconds == 0) {   // 2. 正在进行秒杀
-            $("#buyButon").attr("disabled", false);
+        } else if (remainSeconds == 0) {   // 2. 正在进行秒杀：按钮able + 显示验证码
+            $("#buyButton").attr("disabled", false);
             if (timeout) {
                 clearTimeout(timeout);
             }
             $("#miaoshaTip").html("秒杀进行中");
 
+            <!-- 如果秒杀已开始，展示验证码图片及验证码输入框 -->
+            <!-- 图片地址是 请求 "/miaosha/verifyCode?goodsId=" + $("#goodsId").val() 返回的图片 -->
 
-        } else {    // 3. 秒杀已经结束
-            $("#buyButon").attr("disabled", true);
+
+            $("#verifyCodeImg").attr("src", "/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val());
+            $("#verifyCodeImg").show();
+            $("#verifyCode").show();
+
+        } else {    // 3. 秒杀已经结束：按钮disable + 不显示验证码
+            $("#buyButton").attr("disabled", true);
             $("#miaoshaTip").html("秒杀已经结束");
-
+            $("#verifyCodeImg").hide();
+            $("#verifyCode").hide();
         }
 
+    }
+
+    // 点击图片刷新验证码
+    function refreshVarifyCode () {
+        $("#verifyCodeImg").attr("src", "/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val() +
+            "&timestamp=" + new Date().getTime());   // 这个请求传了两个参数，避免使用浏览器缓存的验证码图片
     }
 
     // 鼠标点击先去获取秒杀地址
@@ -177,7 +197,8 @@
             url: "miaosha/path",
             type: "GET",
             data: {
-                goodsId: $("#goodsId").val()
+                goodsId: $("#goodsId").val(),
+                verifyCode: $("#verifyCode").val()
             },
             // 回调
             success: function (data) {    // data 是 Result.success(path)
@@ -242,9 +263,9 @@
                         // 两个按钮，及其对应的回调
                         layer.confirm("恭喜你，秒杀成功！查看订单？", {btn: ["确定", "取消"]},
                             function () {
-                            window.location.href="/order_detail.htm?orderId=" + result;
+                                window.location.href = "/order_detail.htm?orderId=" + result;
                             }, function () {
-                            layer.closeAll();
+                                layer.closeAll();
                             });
                     }
 

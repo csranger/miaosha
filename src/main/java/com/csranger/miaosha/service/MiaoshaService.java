@@ -12,12 +12,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.Random;
+
 /**
  * 将执行秒杀操作放入，进行事务管理
  * (1)减库存 -> (2)下订单 -> (3)数据库插入秒杀订单
  */
 @Service
 public class MiaoshaService {
+
+    private static char[] ops = new char[]{'+', '-', '*'};  // 代表 加减乘 运算符
 
 
     /**
@@ -33,6 +42,7 @@ public class MiaoshaService {
     @Autowired
     private RedisService redisService;
 
+    // #1.1
     // 进行秒杀：(1)减库存 -> (2)数据库插入生成的秒杀订单与订单
     @Transactional
     public OrderInfo miaosha(MiaoshaUser user, GoodsVO goods) {
@@ -53,6 +63,7 @@ public class MiaoshaService {
     }
 
     /**
+     * #2.1
      * orderId : 秒杀成功，数据库中可以查到订单，返回订单id即可
      * -1      : 秒杀失败，意味着商品秒杀卖完了
      * 0       : 排队中，客户端继续轮询，再次查询秒杀结果
@@ -76,16 +87,19 @@ public class MiaoshaService {
         }
     }
 
+    // #1.2
     // 在 redis 中标记此商品卖完 即 goodsId -> true
     private void setGoodsOver(long goodsId) {
         redisService.set(MiaoshaKey.isGoodsOver, "" + goodsId, true);
     }
 
+    // 2.2
     // 查看 redis 中是否标记此商品卖完
     private boolean getGoodsOver(long goodsId) {
         return redisService.exists(MiaoshaKey.isGoodsOver, "" + goodsId);
     }
 
+    // #3
     // 生成一个随机数作为秒杀请求地址，返回给客户端，客户端才知道秒杀地址请求秒杀 + 将这个随机值暂时缓存在 redis，以确认秒杀地址是否正确
     public String createPath(MiaoshaUser miaoshaUser, long goodsId) {
         String path = MD5Util.md5(UUIDUtil.uuid() + "123456");
@@ -93,13 +107,95 @@ public class MiaoshaService {
         return path;
     }
 
+    // #4
     // 验证秒杀路径是否正确，与redis暂时缓存的随机值进行对比
     public boolean checkPath(MiaoshaUser miaoshaUser, long goodsId, String path) {
-        if (path == null) {
+        if (path == null || goodsId <= 0) {
             return false;
         }
         String pathInRedis = redisService.get(MiaoshaKey.getMiaoshaPath, "" + miaoshaUser.getId() + "_" + goodsId, String.class);
         return path.equals(pathInRedis);
     }
 
+
+    // #5.1 生成验证码图片：将一个数学表达式写在验证码图片上，同时将计算结果缓存到 redis，返回这个图片
+    public BufferedImage createVerifyCodeImage(MiaoshaUser miaoshaUser, long goodsId) {
+        if (miaoshaUser == null || goodsId <= 0) {
+            return null;
+        }
+        int width = 90;
+        int height = 32;
+        // 创建 BufferedImage 对象：内存里的图像
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics graphics = image.getGraphics();    // Graphics 看成画笔
+        // 设定背景颜色：以 0xDCDCDC 颜色填充
+        graphics.setColor(new Color(0xDCDCDC));
+        graphics.fillRect(0, 0, width, height);
+        // 以黑色画个矩形框
+        graphics.setColor(Color.black);
+        graphics.drawRect(0, 0, width - 1, height - 1);
+        // 50 个随机干扰点
+        Random rdm = new Random();
+        for (int i = 0; i < 50; i++) {
+            int x = rdm.nextInt(width);
+            int y = rdm.nextInt(height);
+            graphics.drawOval(x, y, 0, 0);
+        }
+        // 生成 数学公式 的字符串
+        String verifyCode = createVerifyCode(rdm);
+        graphics.setColor(new Color(0, 100, 0));                 // 画笔颜色
+        graphics.setFont(new Font("Candara", Font.BOLD, 24));  // 画笔字体
+        graphics.drawString(verifyCode, 8, 24);
+        graphics.dispose();
+
+        // 数学公式 的字符串的计算结果缓存到 redis
+        int answer = calc(verifyCode);
+        redisService.set(MiaoshaKey.getMiaoshaVerifyCode, miaoshaUser.getId() + "_" + goodsId, answer);
+
+        // 输出图片
+        return image;
+    }
+
+    // #5.2 生成 数学公式 的字符串
+    private String createVerifyCode(Random rdm) {
+        int number1 = rdm.nextInt(10);    // [0, 10) 之间的随机数
+        int number2 = rdm.nextInt(10);
+        int number3 = rdm.nextInt(10);
+        char ops1 = ops[rdm.nextInt(3)];   // 没有除法是为了防止除以0异常，简化代码
+        char ops2 = ops[rdm.nextInt(3)];
+        return "" + number1 + ops1 + number2 + ops2 + number3;
+    }
+
+    // #5.3 计算数学表达式字符串的结果
+    public int calc(String exp) {
+        try{
+            ScriptEngineManager manager = new ScriptEngineManager();
+            ScriptEngine engine = manager.getEngineByName("JavaScript");
+            return (Integer) engine.eval(exp);
+        } catch (ScriptException e){
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    public static void main(String[] args) {
+        // 测试下 calc 函数
+        String exp = new MiaoshaService().createVerifyCode(new Random());
+        System.out.println(exp);
+        int ans = new MiaoshaService().calc(exp);
+        System.out.println(ans);
+    }
+
+    // #6 匹配验证码，并删掉缓存在 redis 中的值
+    public boolean checkVerifyCode(MiaoshaUser miaoshaUser, long goodsId, int verifyCode) {
+        if (miaoshaUser == null || goodsId <= 0) {
+            return false;
+        }
+        Integer verifyCodeInRedis = redisService.get(MiaoshaKey.getMiaoshaVerifyCode, miaoshaUser.getId() + "_" + goodsId, Integer.class);
+        if (verifyCodeInRedis == null || verifyCodeInRedis - verifyCode != 0) {
+            return false;
+        }
+        redisService.delete(MiaoshaKey.getMiaoshaVerifyCode, miaoshaUser.getId() + "_" + goodsId);
+        return true;
+    }
 }

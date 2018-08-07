@@ -584,16 +584,20 @@ CREATE TABLE `miaosha_user` (
     
 ## 6. 安全优化
 ### 6.1 秒杀地址隐藏
-1. 思路：秒杀开始之前，先去请求接口获取秒杀地址
-    - 接口改造，带上 PathVariable 参数
-    - 添加生成地址的接口
-    - 秒杀收到请求，先验证 PathVariable
-2. 改造前：在 goods_detail.htm 页面点击秒杀按钮，利用ajax向 "miaosha/do_miaosha" 发起秒杀请求
-3. 改造后：在 goods_detail.htm 页面点击秒杀按钮先获取秒杀地址，即利用 ajax 先向 miaosha/path 发起请求
-
+1. 改造前：在 goods_detail.htm 页面点击秒杀按钮，利用ajax向 "miaosha/do_miaosha" 发起请求，将秒杀信息入队，进行秒杀
+2. 改造后：在 goods_detail.htm 页面点击秒杀按钮先获取秒杀地址，即利用 ajax 先向 miaosha/path 发起请求，得到随机字符串，将这个字符串发送给客户端
+作为秒杀地址，同时暂时缓存到redis中。紧接着客户端请求 /miaosha/{path}/do_miaosha ，和 redis 中对比 path ，如果正确将秒杀信息入队，进行秒杀
+3. 优势：改造前客户可以通过客户端查看前端代码直接请求 miaosha/do_miaosha 并传递 goodsID ；改造后无法获取秒杀地址只能通过点击秒杀按钮先获取秒杀地址
 
 ### 6.2 数学公式验证码
-### 6.3 接口限流防刷
+1. 改造前：在 goods_list 页面点击商品详情，进入 /goods_detail.htm?goodsId= 商品详情页静态页面。商品详情页立即使用 ajax 请求
+ "/goods/to_detail/" + goodsId 获取此页面需要的 json 数据，然后将页面渲染出来。页面渲染出来后进行倒计时：(1) 显示倒计时 + 秒杀按钮disable
+(2) 显示秒杀已开始 + 按钮able (3) 秒杀已结束 + 按钮disable
+2. 默认应该将验证码不显示(使用 style="display:none" 属性)，如果是正在秒杀中，则显示验证码及其验证码输入框.
+2. 改造后：前面请求一样，只是页面渲染出来后进行倒计时：根据 remainSeconds 的值决定显示效果：(1) 显示倒计时 + 秒杀按钮disable + 不显示验证码
+(2) 显示秒杀已开始 + 按钮able + 显示验证码 (3) 秒杀已结束 + 按钮disable + 不显示验证码；这些验证码图片的 src 属性是
+"/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val()) ，对这个url的请求会返回一个验证码图片，同时将答案展示缓存到redis中。当在
+验证码输入框输入验证值后点击秒杀按钮会同时将这个结果作为请求参数，和redis中缓存的进行对比。正确得啊则请求到秒杀地址，然后秒杀。
 
 
 
