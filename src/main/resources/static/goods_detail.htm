@@ -58,8 +58,8 @@
                 <!--<button class="btn btn-primary btn-block" type="submit" id="buyButon">立即秒杀</button>-->
                 <!--<input type="hidden" name="goodsId" id="goodsId">-->
                 <!--</form>-->
-                <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数-->
-                <button class="btn btn-primary btn-block" type="submit" id="buyButon" onclick="doMiaosha()">立即秒杀
+                <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数--> <!--安全起见点击秒杀按钮先去获取秒杀地址-->
+                <button class="btn btn-primary btn-block" type="submit" id="buyButon" onclick="getMiaoshaPath()">立即秒杀
                 </button>
                 <input type="hidden" name="goodsId" id="goodsId">
             </td>
@@ -171,10 +171,33 @@
 
     }
 
-    // 鼠标点击时间触发秒杀
-    function doMiaosha() {
+    // 鼠标点击先去获取秒杀地址
+    function getMiaoshaPath() {
         $.ajax({
-            url: "miaosha/do_miaosha",
+            url: "miaosha/path",
+            type: "GET",
+            data: {
+                goodsId: $("#goodsId").val()
+            },
+            // 回调
+            success: function (data) {    // data 是 Result.success(path)
+                if (data.code == 0) {
+                    var path = data.data;   // 服务端随机生成的值，发起miaosha/do_miaosha请求时需带上这个值
+                    doMiaosha(path);
+                } else {
+                    layer.msg(data.msg);
+                }
+            },
+            error: function () {
+                layer.msg("客户端请求有误");
+            }
+        });
+    }
+
+    // 鼠标点击时间触发秒杀
+    function doMiaosha(path) {
+        $.ajax({
+            url: "miaosha/" + path + "/do_miaosha",
             type: "POST",
             data: {   // POST 中请求参数，相当于表单数据
                 goodsId: $("#goodsId").val()
@@ -211,9 +234,9 @@
                     if (result < 0) {
                         layer.msg("对不起，秒杀失败");
                     } else if (result == 0) {   // 排队中则需要再次发送请求
-                        setTimeout(function () {    // 50ms后再次请求获取秒杀结果
+                        setTimeout(function () {    // 200ms后再次请求获取秒杀结果
                             getMiaoshaResult(goodsId);
-                        }, 50)
+                        }, 200)
 
                     } else {
                         // 两个按钮，及其对应的回调

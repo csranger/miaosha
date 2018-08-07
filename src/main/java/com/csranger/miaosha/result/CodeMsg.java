@@ -18,6 +18,7 @@ public class CodeMsg {
     public static CodeMsg SUCCESS = new CodeMsg(0, "success");
     public static CodeMsg SERVER_ERROR = new CodeMsg(500100, "服务端异常");
     public static CodeMsg BIND_ERROR = new CodeMsg(500101, "参数校验异常：%s");  // 为这种有 格式化字符串 的添加一个方法
+    public static CodeMsg REQUEST_ILLEGAL = new CodeMsg(500102, "请求非法");
 
     // 登陆模块 5002XX
     public static CodeMsg PASSWORD_EMPTY = new CodeMsg(500211, "登陆密码不能为空");

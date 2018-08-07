@@ -6,6 +6,8 @@ import com.csranger.miaosha.model.MiaoshaUser;
 import com.csranger.miaosha.model.OrderInfo;
 import com.csranger.miaosha.redis.MiaoshaKey;
 import com.csranger.miaosha.redis.RedisService;
+import com.csranger.miaosha.util.MD5Util;
+import com.csranger.miaosha.util.UUIDUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,6 +86,20 @@ public class MiaoshaService {
         return redisService.exists(MiaoshaKey.isGoodsOver, "" + goodsId);
     }
 
+    // 生成一个随机数作为秒杀请求地址，返回给客户端，客户端才知道秒杀地址请求秒杀 + 将这个随机值暂时缓存在 redis，以确认秒杀地址是否正确
+    public String createPath(MiaoshaUser miaoshaUser, long goodsId) {
+        String path = MD5Util.md5(UUIDUtil.uuid() + "123456");
+        redisService.set(MiaoshaKey.getMiaoshaPath, "" + miaoshaUser.getId() + "_" + goodsId, path);
+        return path;
+    }
 
+    // 验证秒杀路径是否正确，与redis暂时缓存的随机值进行对比
+    public boolean checkPath(MiaoshaUser miaoshaUser, long goodsId, String path) {
+        if (path == null) {
+            return false;
+        }
+        String pathInRedis = redisService.get(MiaoshaKey.getMiaoshaPath, "" + miaoshaUser.getId() + "_" + goodsId, String.class);
+        return path.equals(pathInRedis);
+    }
 
 }

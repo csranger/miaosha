@@ -1,13 +1,14 @@
 # 一、核心技术栈
 1. spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter + jquery + ajax
-2. 两次 md5 入库
-3. jsr303 参数校验
-4. 全局异常处理：@ControllerAdvice + @ExceptionHandler
-5. 分布式 session (redis 实现)
-6. Jmeter 模拟多用户同时发起多次秒杀请求比较优化前后QPS
-7. 页面级缓存+URL级缓存+对象级缓存
-8. 页面静态化与前后端分离: 静态html -> ajax -> controller返回json
-9. redis 预减库存+rabbitmq异步下单
+2.  两次 md5 入库
+3.  jsr303 参数校验
+4.  全局异常处理：@ControllerAdvice + @ExceptionHandler
+5.  分布式 session (redis 实现)
+6.  Jmeter 模拟多用户同时发起多次秒杀请求比较优化前后QPS
+7.  页面级缓存+URL级缓存+对象级缓存
+8.  页面静态化与前后端分离: 静态html -> ajax -> controller返回json
+9.  redis 预减库存 + rabbitmq异步下单
+10. 安全优化：秒杀地址隐藏 + 数学公式验证码 + 接口限流防刷
 
 
 # 二、如何使用
@@ -348,7 +349,7 @@ CREATE TABLE `miaosha_user` (
     ![秒杀请求截图](./jmeter/pics/秒杀请求截图.png "秒杀请求截图")
     ![秒杀压测结果](./jmeter/pics/秒杀压测结果.png "秒杀压测结果")
     
-## 5. 页面优化技术
+## 5. 页面优化
 ### 5.1 页面缓存+URL缓存+对象缓存
 1. 并发的瓶颈在数据库，使用各种粒度的缓存减少对数据库的访问
 2. 页面缓存：访问页面不是直接由系统渲染，而是首先从缓存里面取，如果找到直接返回给客户端，没有则手动渲染这个模版，渲染后再将结果输出给客
@@ -580,7 +581,19 @@ CREATE TABLE `miaosha_user` (
     - 结果：QPS：3518.6/s  卖了 499 份，miaosha_goods 的库存并没有变负数，是 1。推测是因为同一时刻某个用户发起多个请求，后面的请求无法秒杀
     但是redis的库存已经减了，所以有1个没卖出去。
     - 如何解决？(1)卖超是不允许的，但是卖不完是允许的。(2)初始化的时候 商品数量比库存多一点就好了
+    
+## 6. 安全优化
+### 6.1 秒杀地址隐藏
+1. 思路：秒杀开始之前，先去请求接口获取秒杀地址
+    - 接口改造，带上 PathVariable 参数
+    - 添加生成地址的接口
+    - 秒杀收到请求，先验证 PathVariable
+2. 改造前：在 goods_detail.htm 页面点击秒杀按钮，利用ajax向 "miaosha/do_miaosha" 发起秒杀请求
+3. 改造后：在 goods_detail.htm 页面点击秒杀按钮先获取秒杀地址，即利用 ajax 先向 miaosha/path 发起请求
 
+
+### 6.2 数学公式验证码
+### 6.3 接口限流防刷
 
 
 

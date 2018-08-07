@@ -7,6 +7,7 @@ import com.csranger.miaosha.model.OrderInfo;
 import com.csranger.miaosha.rabbitmq.MQSender;
 import com.csranger.miaosha.rabbitmq.MiaoshaMessage;
 import com.csranger.miaosha.redis.GoodsKey;
+import com.csranger.miaosha.redis.MiaoshaKey;
 import com.csranger.miaosha.redis.RedisService;
 import com.csranger.miaosha.result.CodeMsg;
 import com.csranger.miaosha.result.Result;
@@ -14,16 +15,15 @@ import com.csranger.miaosha.service.GoodsService;
 import com.csranger.miaosha.service.MiaoshaService;
 import com.csranger.miaosha.service.MiaoshaUserService;
 import com.csranger.miaosha.service.OrderService;
+import com.csranger.miaosha.util.MD5Util;
+import com.csranger.miaosha.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
@@ -108,13 +108,37 @@ public class MiaoshaController implements InitializingBean {
 
     }
 
-    @RequestMapping(value = "/do_miaosha", method = RequestMethod.POST)
+    /**
+     * 秒杀地址隐藏：点击秒杀按钮，现获取秒杀地址
+     * 生成一个随机数，返回给客户端，客户端立即请求/miaosha/{psth}/do_miaosha，才可进行秒杀：这样就隐藏了秒杀路径
+     */
+    @RequestMapping(value = "/path", method = RequestMethod.GET)
     @ResponseBody
-    public Result<Integer> miaosha(MiaoshaUser miaoshaUser, @RequestParam("goodsId") long goodsId) {
+    public Result<String> getMiaoshaPath(MiaoshaUser miaoshaUser, @RequestParam("goodsId") long goodsId) {
+        logger.info("正在获取秒杀地址");
+        if (miaoshaUser == null) {
+            return Result.error(CodeMsg.SESSION_ERROR);
+        }
+        // 生成一个随机数作为秒杀请求地址，返回给客户端，客户端才知道秒杀地址请求秒杀 + 将这个随机值暂时缓存在 redis，以确认秒杀地址是否正确
+        String path = miaoshaService.createPath(miaoshaUser, goodsId);
+
+        return Result.success(path);
+    }
+
+    @RequestMapping(value = "/{path}/do_miaosha", method = RequestMethod.POST)
+    @ResponseBody
+    public Result<Integer> miaosha(MiaoshaUser miaoshaUser,
+                                   @RequestParam("goodsId") long goodsId,
+                                   @PathVariable("path") String path) {
         logger.info("用户 " + miaoshaUser.getId() + " 正在秒杀，秒杀商品的id是 " + goodsId);
 
         if (miaoshaUser == null) {
             return Result.error(CodeMsg.SESSION_ERROR);
+        }
+        // 验证{path} 键是 miaoshaUser.getId() + "_" + goodsId
+        boolean check = miaoshaService.checkPath(miaoshaUser, goodsId, path);
+        if (!check) {   // 验证失败，返回请求非法
+            return Result.error(CodeMsg.REQUEST_ILLEGAL);
         }
 
         // 本地缓存记录商品是否秒杀结束：减少秒杀库存没了后之后的用户依然发起秒杀请求对redis的访问
