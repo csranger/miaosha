@@ -23,12 +23,10 @@ public class LoginController {
     private MiaoshaUserService miaoshaUserService;
 
 
-
     @RequestMapping(value = "/to_login")
     public String toLogin() {
         return "login";
     }
-
 
 
     // 测试时 使用12345678909 123456 登录测试 mysql 保存的两次 md5 密码是 b7797cce01b4b131b433b6acf4add449

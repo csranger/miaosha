@@ -22,7 +22,6 @@ public class MQSender {
     private AmqpTemplate amqpTemplate;
 
 
-
     /**
      * 1. Direct 模式
      * 指定向名为 DIRECT_QUEUE 的队列发送数据

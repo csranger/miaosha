@@ -1,13 +1,12 @@
 package com.csranger.miaosha.controller;
 
+import com.csranger.miaosha.access.AccessLimit;
 import com.csranger.miaosha.VO.GoodsVO;
 import com.csranger.miaosha.model.MiaoshaOrder;
 import com.csranger.miaosha.model.MiaoshaUser;
-import com.csranger.miaosha.model.OrderInfo;
 import com.csranger.miaosha.rabbitmq.MQSender;
 import com.csranger.miaosha.rabbitmq.MiaoshaMessage;
 import com.csranger.miaosha.redis.GoodsKey;
-import com.csranger.miaosha.redis.MiaoshaKey;
 import com.csranger.miaosha.redis.RedisService;
 import com.csranger.miaosha.result.CodeMsg;
 import com.csranger.miaosha.result.Result;
@@ -15,14 +14,11 @@ import com.csranger.miaosha.service.GoodsService;
 import com.csranger.miaosha.service.MiaoshaService;
 import com.csranger.miaosha.service.MiaoshaUserService;
 import com.csranger.miaosha.service.OrderService;
-import com.csranger.miaosha.util.MD5Util;
-import com.csranger.miaosha.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import javax.imageio.ImageIO;
@@ -120,8 +116,8 @@ public class MiaoshaController implements InitializingBean {
     @RequestMapping(value = "/verifyCodeImage", method = RequestMethod.GET)
     @ResponseBody
     public Result<String> getMiaoshaVerifyCodeImage(MiaoshaUser miaoshaUser,
-                                                      @RequestParam("goodsId") long goodsId,
-                                                      HttpServletResponse response) {
+                                                    @RequestParam("goodsId") long goodsId,
+                                                    HttpServletResponse response) {
         logger.info("正在进行验证码验证");
         if (miaoshaUser == null) {
             return Result.error(CodeMsg.SESSION_ERROR);
@@ -144,6 +140,7 @@ public class MiaoshaController implements InitializingBean {
      * 秒杀地址隐藏：点击秒杀按钮，先对比验证码，验证码正确的话再获取秒杀地址
      * 生成一个随机数，返回给客户端，客户端立即请求/miaosha/{psth}/do_miaosha，才可进行秒杀：这样就隐藏了秒杀路径
      */
+    @AccessLimit(seconds = 5, maxCounts = 5, needLogin = true)
     @RequestMapping(value = "/path", method = RequestMethod.GET)
     @ResponseBody
     public Result<String> getMiaoshaPath(MiaoshaUser miaoshaUser,

@@ -1,5 +1,5 @@
 # 一、核心技术栈
-1. spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter + jquery + ajax
+1.  spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter + jquery + ajax
 2.  两次 md5 入库
 3.  jsr303 参数校验
 4.  全局异常处理：@ControllerAdvice + @ExceptionHandler
@@ -8,17 +8,169 @@
 7.  页面级缓存+URL级缓存+对象级缓存
 8.  页面静态化与前后端分离: 静态html -> ajax -> controller返回json
 9.  redis 预减库存 + rabbitmq异步下单
-10. 安全优化：秒杀地址隐藏 + 数学公式验证码 + 接口限流防刷
+10. 安全优化：秒杀地址隐藏 + 数学公式验证码 + 接口限流防刷(自定义@AccessLimit注解)
 
 
 # 二、如何使用
 1. 新建 miaosha 数据库与数据表并修改 application.properties 中的数据库密码
 2. 配置好 redis 并启动 redis-server /usr/local/etc/redis.conf 和 mysql
-3. 运行 MiaoshaApplication 浏览器输入 127.0.0.1:8080/login/to_login 进行登录
+3. 启动 rabbitmq-server
+4. 运行 MiaoshaApplication 浏览器输入 127.0.0.1:8080/login/to_login 进行登录 [12345678900 123456]
 
 
 
-# 三、开发过程
+# 三、重点小结
+## 总结1：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
+1. 考虑的问题是否需要用户登录；实现功能如限制5s内只允许发起10次请求；希望将这个非业务代码和业务逻辑分开，使用自定义注解，加了此注解就进行此接口的限流防刷
+2. 自定义一个注解 @AccessLimit
+    ```
+    @Retention(RUNTIME)             // 注解的的存活时间 注解可以保留到程序运行的时候
+    @Target(METHOD)                 // @Target 指定了注解运用的地方 可以给方法进行注解
+    public @interface AccessLimit {
+        int seconds();                           // 时间
+        int maxCounts();                         // 在指定时间内的最大访问次数
+        boolean needLogin() default true;        // 是否需要登录 默认需要登录
+    }
+    ```
+3. 实现一个访问接口拦截器来处理这个注解 AccessInterceptor 
+    ```java
+    /**
+     * 接口拦截器 AccessInterceptor 来处理 @AccessLimit 注解
+     */
+    @Service   // 拦截器交由容器管理
+    public class AccessInterceptor extends HandlerInterceptorAdapter {   // 继承拦截器基类
+        @Autowired
+        private MiaoshaUserService miaoshaUserService;
+    
+        @Autowired
+        private RedisService redisService;
+    
+        // 添加 @AccessLimit 注解的方法执行前进行拦截，进行一些处理，重写继承拦截器基类的 preHandle 方法
+        @Override
+        public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+            if (handler instanceof HandlerMethod) {
+    
+                // 1. 获取用户对象：利用 request
+                MiaoshaUser miaoshaUser = getUser(request, response);
+    
+    
+                // 2. 获取注解 @AccessLimit 注解信息
+                HandlerMethod hm = (HandlerMethod) handler;
+                AccessLimit accessLimit = hm.getMethodAnnotation(AccessLimit.class);   // 获取方法上的 @AccessLimit 注解
+                if (accessLimit == null) {      // 方法上不存在 @AccessLimit 注解则不需要进行任何限制
+                    return true;
+                }
+                // 如果方法上存在 @AccessLimit 注解，则获取注解的限制信息
+                int seconds = accessLimit.seconds();
+                int maxCounts = accessLimit.maxCounts();
+                boolean needLogin = accessLimit.needLogin();
+    
+                // 3. 拦截器处理 @AccessLimit
+                // 3.1 处理 needLogin
+                String key = request.getRequestURI();
+                if (needLogin) {  // 如果需要登录则判断 miaoshaUser 是否为空
+                    if (miaoshaUser == null) {
+                        render(response, CodeMsg.SESSION_ERROR);
+                        return false;
+                    }
+                    key += "_" + miaoshaUser.getId();
+                }
+                // 3.2 处理 seconds maxCount
+                AccessKey ak = AccessKey.withExpires(seconds);
+                Integer count = redisService.get(ak, key, Integer.class);
+                if (count == null) {
+                    redisService.set(ak, key, 1);
+                } else if (count < maxCounts) {
+                    redisService.incr(ak, key);
+                } else {
+                    render(response, CodeMsg.ACCESS_LIMIT_REACHED);
+                    return false;
+                }
+    
+            }
+            return super.preHandle(request, response, handler);
+        }
+    
+        /**
+         * 根据用户的 request 取出用户
+         * request 如果 包含 cookie 中了包含了 token 则从 redis 中取出 MiaoshaUser 对象
+         */
+        private MiaoshaUser getUser(HttpServletRequest request, HttpServletResponse response) {
+            // 每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息
+            // 如果cookie里没有token(直接打开页面没有登陆的情况)，getByToken 方法从redis中去不成对象，返回 null
+            String paramToken = request.getParameter(MiaoshaUserService.COOKIE_NAME_TOKEN);      // "token"值 被放在请求参数中获取
+            String cookieToken = getCookieValue(request, MiaoshaUserService.COOKIE_NAME_TOKEN);  // "token"值 被放在 cookie 中获取
+            if (StringUtils.isBlank(paramToken) && StringUtils.isBlank(cookieToken)) {
+                return null;
+            }
+            String token = StringUtils.isBlank(paramToken) ? cookieToken : paramToken;
+            return miaoshaUserService.getByToken(response, token);     // 从 redis 中利用 "token" 对应的值 UUID 取出 MiaoshaUser 对象
+    
+        }
+    
+    
+        /**
+         * 从用户请求中的 cookie 中取出 token 变量的值(UUID)
+         * 从 request 中取出 "token" 对应的值 UUID
+         */
+        private String getCookieValue(HttpServletRequest request, String cookieName) {
+            Cookie[] cookies = request.getCookies();
+            if (cookies == null || cookies.length <= 0) {
+                return null;
+            }
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals(cookieName)) {
+                    return cookie.getValue();
+                }
+            }
+            return null;
+        }
+    
+        /**
+         * 利用 response 输出 CodeMsg 信息
+         */
+        public void render(HttpServletResponse response, CodeMsg codeMsg) throws Exception {
+            OutputStream out = response.getOutputStream();
+            String str = JSON.toJSONString(codeMsg);
+            out.write(str.getBytes("UTF-8"));
+            out.flush();
+            out.close();
+        }
+    }
+
+    ```
+4. 拦截器需要注册到系统上，注册实现和 UserArgumentResolver 一样，UserArgumentResolver也是注册到 WebConfig 类上
+    ```java
+    // WebMvcConfigurerAdapter 过时，这里使用里 WebMvcConfigurer 接口
+    @Configuration
+    public class WebConfig implements WebMvcConfigurer {
+    
+        @Autowired
+        private UserArgumentResolver userArgumentResolver;
+    
+        @Autowired
+        private AccessInterceptor accessInterceptor;   
+     
+        /**
+         * UserArgumentResolver 注册到系统
+         */
+        @Override
+        public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+            resolvers.add(userArgumentResolver);
+        }
+    
+        /**
+         * AccessInterceptor 拦截器注册到系统
+         */
+        @Override
+        public void addInterceptors(InterceptorRegistry registry) {
+            registry.addInterceptor(accessInterceptor);
+        }
+    }
+    ```
+
+
+# 四、开发过程
 ## 1. 项目环境搭建
 ### 1.1 输出结果封装
 - 输出结果使用Result.java类封装，为了是代码优雅使用类CodeMsg进一步封装各种异常
@@ -397,10 +549,6 @@ CREATE TABLE `miaosha_user` (
     后跳转到订单详情静态页面并有请求参数?orderId=...。商品详情页ajax发起 /order/detail 请求，得到 Result<OrderDetailVO>，然后修改 order_detail 页面
 7. 页面静态化就是 (1)先打开一个静态页面 (2)利用ajax想服务端发送请求，获取页面所需数据 (3)服务端返回页面所需数据，可能需要创建页面所需数据的
    对象，例如 GoodsDetailVO，OrderDatailVO 那么服务端返回 json 数据 Result<GoodsDetailVO> (4)js 利用返回的json数据修改页面
-8. OrderController info 方法上注解 @NeedLogin，拦截器里判断有这个标签的话如果 miaoshaUser 为 null，直接返回 result.error(CodeMsg.SESSION_ERROR) 
-   所以需要controller中需要判断用户是否登陆的方法都可以加上这个注解，避免每个方法都重复判断 miaoshaUser 是否为 null
-   - 拦截器理解成用户发起请求到controller相应方法前，预先可以做一些事，前面的从
-   - 参考 http://www.cnblogs.com/Profound/p/9010948.html
 
 ### 5.3 卖超问题和一个用户秒杀多个商品
 1. 卖超问题：在使用 jmeter 压测时发现秒杀商品卖的比存货数量大
@@ -625,18 +773,13 @@ CREATE TABLE `miaosha_user` (
 1. 改造前：在 goods_list 页面点击商品详情，进入 /goods_detail.htm?goodsId= 商品详情页静态页面。商品详情页立即使用 ajax 请求
  "/goods/to_detail/" + goodsId 获取此页面需要的 json 数据，然后将页面渲染出来。页面渲染出来后进行倒计时：(1) 显示倒计时 + 秒杀按钮disable
 (2) 显示秒杀已开始 + 按钮able (3) 秒杀已结束 + 按钮disable
-2. 默认应该将验证码不显示(使用 style="display:none" 属性)，如果是正在秒杀中，则显示验证码及其验证码输入框.
 2. 改造后：前面请求一样，只是页面渲染出来后进行倒计时：根据 remainSeconds 的值决定显示效果：(1) 显示倒计时 + 秒杀按钮disable + 不显示验证码
 (2) 显示秒杀已开始 + 按钮able + 显示验证码 (3) 秒杀已结束 + 按钮disable + 不显示验证码；这些验证码图片的 src 属性是
 "/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val()) ，对这个url的请求会返回一个验证码图片，同时将答案展示缓存到redis中。当在
 验证码输入框输入验证值后点击秒杀按钮会同时将这个结果作为请求参数，和redis中缓存的进行对比。正确得啊则请求到秒杀地址，然后秒杀。
 
-### 6.3 接口限流防刷
-
-
-
-
-
+### 6.3 接口限流防刷(自定义注解+拦截器)
+    - 见重点小结：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
 
 
 

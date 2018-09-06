@@ -2,7 +2,7 @@ package com.csranger.miaosha.redis;
 
 /**
  * KeyPrefix -> BasePrefix -> OrderKey/MiaoshaUserKey/GoodsKey/MiaoshaKey
- *
+ * <p>
  * 页面缓存前缀
  */
 public class GoodsKey extends BasePrefix {

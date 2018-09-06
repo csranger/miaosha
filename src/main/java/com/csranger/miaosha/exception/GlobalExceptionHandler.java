@@ -21,7 +21,7 @@ import java.util.List;
 @ResponseBody
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(value = Exception.class)     // 表明拦截说有异常
+    @ExceptionHandler(value = Exception.class)     // 表明拦截所有异常
     public Result<String> exceptionHandler(HttpServletRequest request, Exception e) {   // 方法的参数和controller一样，HttpServletRequest和Exception均是系统传过来的
 
         // 如果是

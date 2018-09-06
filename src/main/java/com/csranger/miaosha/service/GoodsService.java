@@ -16,7 +16,7 @@ public class GoodsService {
 
     // 查询所有秒杀商品：商品列表页用到
     public List<GoodsVO> listGoodsVO() {
-       return goodsDao.listGoodsVO();
+        return goodsDao.listGoodsVO();
     }
 
 

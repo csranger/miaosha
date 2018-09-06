@@ -17,8 +17,6 @@ public class RedisService {
     JedisPool jedisPool;
 
 
-
-
     /**
      * 1。从 redis 服务器中获取对象，例如User对象，键可以是id，name等
      */
@@ -55,7 +53,6 @@ public class RedisService {
             return JSON.toJavaObject(JSON.parseObject(s), clazz);
         }
     }
-
 
 
     /**
@@ -105,7 +102,6 @@ public class RedisService {
     }
 
 
-
     // 两个方法的工具方法，释放 Jedis 到 JedisPool
     private void returnToPool(Jedis jedis) {
         if (jedis != null) {
@@ -143,7 +139,6 @@ public class RedisService {
             returnToPool(jedis);
         }
     }
-
 
 
     /**

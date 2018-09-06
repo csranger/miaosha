@@ -2,7 +2,7 @@ package com.csranger.miaosha.redis;
 
 /**
  * KeyPrefix -> BasePrefix -> OrderKey/MiaoshaUserKey/GoodsKey/MiaoshaKey
- *
+ * <p>
  * 是否还有秒杀商品库存前缀    goodsId -> true/对应商品卖完
  */
 public class MiaoshaKey extends BasePrefix {

@@ -18,7 +18,6 @@ public class ValidatorUtil {
     private static final Pattern mobile_pattern = Pattern.compile("1\\d{10}");
 
 
-
     // 判断手机号格式是否正确的方法
     public static boolean isMobile(String src) {
         if (StringUtils.isBlank(src)) return false;

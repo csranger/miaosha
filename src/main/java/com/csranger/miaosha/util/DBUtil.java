@@ -18,18 +18,18 @@ public class DBUtil {
             props = new Properties();
             props.load(in);
             in.close();
-        }catch(Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static Connection getConn() throws Exception{
+    public static Connection getConn() throws Exception {
         String url = props.getProperty("spring.datasource.url");
         String username = props.getProperty("spring.datasource.username");
         String password = props.getProperty("spring.datasource.password");
         String driver = props.getProperty("spring.datasource.driverClassName");
         Class.forName(driver);
-        return DriverManager.getConnection(url,username, password);
+        return DriverManager.getConnection(url, username, password);
     }
 
 }

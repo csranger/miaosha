@@ -28,9 +28,6 @@ public class MQConfig {
     public static final String MIAOSHA_QUEUE = "miaosha.queue";       // 秒杀 queue 队列
 
 
-
-
-
     /**
      * 1. Direct 模式
      */
@@ -50,9 +47,6 @@ public class MQConfig {
     public Queue miaoshaQueue() {
         return new Queue(MIAOSHA_QUEUE, true);
     }
-
-
-
 
 
     /**
@@ -97,9 +91,6 @@ public class MQConfig {
     }
 
 
-
-
-
     /**
      * 3. Fanout 模式(广播模式) 交换机Exchange
      * 可以发给多个Queue，没有key的限制
@@ -126,9 +117,6 @@ public class MQConfig {
     public Binding fanoutBinding2() {
         return BindingBuilder.bind(topicQueue2()).to(fanoutExchange());
     }
-
-
-
 
 
     /**
@@ -162,9 +150,6 @@ public class MQConfig {
         map.put("headers2", "value2");
         return BindingBuilder.bind(headersQueue()).to(headersExchange()).whereAll(map).match();
     }
-
-
-
 
 
 }

@@ -73,7 +73,7 @@
 <script>
     // 1. 参数校验
     function login() {
-    // 2. 验证通过则执行 doLogin
+        // 2. 验证通过则执行 doLogin
         $("#loginForm").validate({
             submitHandler: function (form) {
                 doLogin();
@@ -88,7 +88,7 @@
 
         var inputPass = $("#password").val();     // 表单填写的密码
         var salt = g_passsword_salt;
-        var str = ""+salt.charAt(0)+salt.charAt(2) + inputPass +salt.charAt(5) + salt.charAt(4);
+        var str = "" + salt.charAt(0) + salt.charAt(2) + inputPass + salt.charAt(5) + salt.charAt(4);
         // md5 方法来自 md5 js
         var password = md5(str);                  // 通过固定盐值加密后的密码   输入真实的密码 + 固定salt -> 表单加密密码
         // 3.2 传给 do_login 页面两个数据：手机号 + 使用固定盐值通过 md5 加密一次的密码发送到服务端 由 LoginUser 对象接收

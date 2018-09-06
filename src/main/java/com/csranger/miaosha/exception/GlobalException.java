@@ -10,7 +10,6 @@ public class GlobalException extends RuntimeException {
     private CodeMsg codeMsg;  // 作为自添加的异常信息
 
 
-
     public GlobalException(CodeMsg cm) {
         super(cm.toString());
         this.codeMsg = cm;

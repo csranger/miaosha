@@ -77,7 +77,7 @@ public class MiaoshaUserService {
         // cookie 当中传递给客户端 -> [ 客户端在随后的访问当中都在 cookie 上传这个 token -> 服务端拿到这个 token 之后
         // 就根据这个 token 取到用户对应的 sesession 信息 ] 后面步骤浏览器来做
         String token = UUIDUtil.uuid();     // 用户登录后将此用户 token 记住不需要没打开一个页面都生成一个新的 token
-        addCookie(response, token,  miaoshaUser);
+        addCookie(response, token, miaoshaUser);
         logger.info("生成 token 放入 cookie，写到 response 中发送给客户端");
 
         return token;
@@ -144,7 +144,6 @@ public class MiaoshaUserService {
 
         return true;
     }
-
 
 
 }

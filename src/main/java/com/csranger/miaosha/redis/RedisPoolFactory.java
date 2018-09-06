@@ -10,7 +10,7 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 /**
- *  * 根据自定义的配置(redis开头的配置信息例如redis.poolMaxTotal=10)利用 JedisPoolConfig 生成 JedisPool bean (JedisPoolFactory 方法内自己实现)注入spring 容器
+ * * 根据自定义的配置(redis开头的配置信息例如redis.poolMaxTotal=10)利用 JedisPoolConfig 生成 JedisPool bean (JedisPoolFactory 方法内自己实现)注入spring 容器
  */
 @Service     // 使用@EnableConfigurationProperties(RedisConfig.class)+RedisPoolFactory构造器也可以
 public class RedisPoolFactory {

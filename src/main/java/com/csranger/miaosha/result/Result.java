@@ -12,8 +12,6 @@ public class Result<T> {
     private T data;
 
 
-
-
     // 使用两个静态方法创建 Result 对象
     // 成功时调用;只需传入 T data     成功的信息
     public static <T> Result<T> success(T data) {
@@ -24,8 +22,6 @@ public class Result<T> {
     public static <T> Result<T> error(CodeMsg cm) {
         return new Result<T>(cm);
     }
-
-
 
 
     // 构造器,使用上面两个静态方法获取对象，设为private

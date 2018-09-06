@@ -31,7 +31,6 @@ public class MQReceiver {
     private MiaoshaService miaoshaService;
 
 
-
     // 接收 direct.queue 队列发送的消息
     @RabbitListener(queues = MQConfig.DIRECT_QUEUE)
     public void receiveDirectQueue(String message) {
@@ -49,7 +48,6 @@ public class MQReceiver {
     }
 
 
-
     // 接收 topic.queue2 队列发送的消息
     @RabbitListener(queues = MQConfig.TOPIC_QUEUE2)
     public void receiveTopicQueue2(String message) {
@@ -57,13 +55,11 @@ public class MQReceiver {
     }
 
 
-
     // 接收 headers.queue 队列发送的消息
     @RabbitListener(queues = MQConfig.HEADERS_QUEUE)
     public void receiveHeadersQueue(byte[] message) {
         log.info("receive headers message: " + new String(message));
     }
-
 
 
     // 接收 miaosha.queue 队列发送的消息

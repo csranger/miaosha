@@ -113,7 +113,7 @@ public class GoodsController {
     @RequestMapping(value = "/to_detail2/{goodsId}", produces = "text/html")
     @ResponseBody
     public String detail2(Model model, MiaoshaUser miaoshaUser, @PathVariable("goodsId") long goodsId,
-                         HttpServletResponse response, HttpServletRequest request) {
+                          HttpServletResponse response, HttpServletRequest request) {
 
         // 取缓存
         String html = redisService.get(GoodsKey.getGoodsDetail, "" + goodsId, String.class);

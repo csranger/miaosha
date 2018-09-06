@@ -56,11 +56,13 @@
                 <div class="row">
                     <div class="form-inline">   <!-- 将以下三个元素放在同一行 -->
                         <!--图形验证码，默认不显示，仅当秒杀开始时才显示-->
-                        <img id="verifyCodeImg" width="90" height="32" style="display:none" onclick="refreshVarifyCode()"/>
+                        <img id="verifyCodeImg" width="90" height="32" style="display:none"
+                             onclick="refreshVarifyCode()"/>
                         <!-- 验证码输入框 -->
-                        <input id="verifyCode" class="form-control" style="display:none" />
+                        <input id="verifyCode" class="form-control" style="display:none"/>
                         <!--页面静态化改造秒杀，不需要表单发送请求，而是点击触发 doMiaosha 函数--> <!--安全起见点击秒杀按钮先去获取秒杀地址-->
-                        <button class="btn btn-primary" type="submit" id="buyButton" onclick="getMiaoshaPath()">立即秒杀</button>
+                        <button class="btn btn-primary" type="submit" id="buyButton" onclick="getMiaoshaPath()">立即秒杀
+                        </button>
                     </div>
                 </div>
                 <input type="hidden" name="goodsId" id="goodsId">
@@ -186,7 +188,7 @@
     }
 
     // 点击图片刷新验证码
-    function refreshVarifyCode () {
+    function refreshVarifyCode() {
         $("#verifyCodeImg").attr("src", "/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val() +
             "&timestamp=" + new Date().getTime());   // 这个请求传了两个参数，避免使用浏览器缓存的验证码图片
     }

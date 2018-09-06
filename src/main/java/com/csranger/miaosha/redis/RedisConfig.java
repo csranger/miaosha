@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * 仿照house项目里的HttpClientAutoConfiguration类
  */
 @Component
-@ConfigurationProperties(prefix="redis")    // 读取配置文件开头的 redis 开头
+@ConfigurationProperties(prefix = "redis")    // 读取配置文件开头的 redis 开头
 public class RedisConfig {
     private String host;
     private int port;

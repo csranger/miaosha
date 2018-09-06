@@ -34,9 +34,8 @@ public class OrderService {
     }
 
 
-
     /**
-     *  根据 订单id 查询订单
+     * 根据 订单id 查询订单
      */
     public OrderInfo getOrderById(long orderId) {
         return orderDao.getOrderById(orderId);

@@ -21,7 +21,7 @@ import java.util.Random;
 
 /**
  * 将执行秒杀操作放入，进行事务管理
- * (1)减库存 -> (2)下订单 -> (3)数据库插入秒杀订单
+ * (1)减库存 -> (2)数据库插入生成的秒杀订单与订单
  */
 @Service
 public class MiaoshaService {
@@ -168,11 +168,11 @@ public class MiaoshaService {
 
     // #5.3 计算数学表达式字符串的结果
     public int calc(String exp) {
-        try{
+        try {
             ScriptEngineManager manager = new ScriptEngineManager();
             ScriptEngine engine = manager.getEngineByName("JavaScript");
             return (Integer) engine.eval(exp);
-        } catch (ScriptException e){
+        } catch (ScriptException e) {
             e.printStackTrace();
             return 0;
         }

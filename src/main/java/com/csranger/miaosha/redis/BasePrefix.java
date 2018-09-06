@@ -10,7 +10,6 @@ public abstract class BasePrefix implements KeyPrefix {
     private String prefix;
 
 
-
     // public 构造器，但是抽象类不可用于new一个对象
     public BasePrefix(String prefix) {
         this(0, prefix);   // 0表示永不过期
@@ -20,8 +19,6 @@ public abstract class BasePrefix implements KeyPrefix {
         this.expireSeconds = expireSeconds;
         this.prefix = prefix;
     }
-
-
 
 
     // 获取两个属性的值的方法
