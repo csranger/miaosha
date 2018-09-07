@@ -1,5 +1,6 @@
 package com.csranger.miaosha.redis;
 
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -8,8 +9,9 @@ import org.springframework.stereotype.Component;
  * 或者这里不使用 @Component 注解，直接在 RedisService 类上的进行@EnableConfigurationProperties(RedisConfig.class)注解，
  * 仿照house项目里的HttpClientAutoConfiguration类
  */
-@Component
-@ConfigurationProperties(prefix = "redis")    // 读取配置文件开头的 redis 开头
+@Component                               // 交由容器管理
+@ConfigurationProperties(prefix = "redis")    // 读取配置文件(application.properties)里以 redis 开头的配置
+@Data                                        // setter getter 方法
 public class RedisConfig {
     private String host;
     private int port;
@@ -18,61 +20,4 @@ public class RedisConfig {
     private int poolMaxTotal;
     private int poolMaxIdle;
     private int poolMaxWait;        // 秒
-
-    // setter getter
-    public String getHost() {
-        return host;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-    }
-
-    public int getTimeout() {
-        return timeout;
-    }
-
-    public void setTimeout(int timeout) {
-        this.timeout = timeout;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public int getPoolMaxTotal() {
-        return poolMaxTotal;
-    }
-
-    public void setPoolMaxTotal(int poolMaxTotal) {
-        this.poolMaxTotal = poolMaxTotal;
-    }
-
-    public int getPoolMaxIdle() {
-        return poolMaxIdle;
-    }
-
-    public void setPoolMaxIdle(int poolMaxIdle) {
-        this.poolMaxIdle = poolMaxIdle;
-    }
-
-    public int getPoolMaxWait() {
-        return poolMaxWait;
-    }
-
-    public void setPoolMaxWait(int poolMaxWait) {
-        this.poolMaxWait = poolMaxWait;
-    }
 }

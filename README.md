@@ -20,7 +20,322 @@
 
 
 # 三、重点小结
-## 总结1：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
+## 总结1：如何集成redis用于存储缓存？
+1. 这里没使用RedisTemplate，而是使用原生的 jedis 并自己实现 set get 等功能，序列化使用 fastjson，使用 fastjson 把 java 对象转
+换成 json 字符串，存储到 redis server 中；需要系统已安装redis
+2. 添加 jedis 和 fastjson 两个依赖
+    ```
+            <dependency>
+                <groupId>redis.clients</groupId>
+                <artifactId>jedis</artifactId>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>1.2.47</version>
+            </dependency>
+    ```
+3. 在 application.properties 文件中配置下 redis 相关
+    ```
+    # 连接 redis server 
+    redis.host=127.0.0.1
+    redis.port=6379
+    # 10s
+    redis.timeout=10
+    redis.password=csranger
+    # redis连接池配置：redis访问也是使用连接池
+    # 最大连接数
+    redis.poolMaxTotal=1000
+    # 最大空闲
+    redis.poolMaxIdle=500
+    # 最大等待
+    redis.poolMaxWait=500
+    ```
+4. 将redis配置加载进来，自定义 RedisConfig 类
+    ```java
+    @Component                                    // 交由容器管理
+    @ConfigurationProperties(prefix = "redis")    // 读取配置文件(application.properties)里以 redis 开头的配置
+    @Data                                         // setter getter 方法
+    public class RedisConfig {
+        private String host;
+        private int port;
+        private int timeout;           // 秒
+        private String password;
+        private int poolMaxTotal;
+        private int poolMaxIdle;
+        private int poolMaxWait;        // 秒
+    }
+    ```
+5. RedisService 类中的 redis 服务(RedisService类的方法)需要一个 Jedis 对象
+    - 如何创建这个对象？通过 JedisPool 获取 Jedis 对象，所以需要创建一个 JedisPool 的 Bean 来调用从而生成 Jedis 对象
+    - 创建一个 JedisPool 的 Bean，这里需要使用到 redis 的配置：RedisConfig 类
+    - 下面生成一个 JedisPool 的 Bean
+    ```java
+    @Service     // 使用@EnableConfigurationProperties(RedisConfig.class)+RedisPoolFactory构造器也可以
+    public class RedisPoolFactory {
+    
+        @Autowired
+        private RedisConfig redisConfig;
+    
+        // 将 jedis pool Bean 注入到 spring 容器
+        @Bean
+        public JedisPool jedisPoolFactory() {
+            JedisPoolConfig jedisPoolConfig = new JedisPoolConfig();
+            jedisPoolConfig.setMaxTotal(redisConfig.getPoolMaxTotal());
+            jedisPoolConfig.setMaxIdle(redisConfig.getPoolMaxIdle());
+            jedisPoolConfig.setMaxWaitMillis(redisConfig.getPoolMaxWait() * 1000);
+            JedisPool jp = new JedisPool(jedisPoolConfig, redisConfig.getHost(), redisConfig.getPort(),
+                    redisConfig.getTimeout() * 1000, redisConfig.getPassword(), 0);
+            return jp;
+        }
+    }
+    ```
+6. 编写 RedisService 类提供 redis 服务
+    - get()       从 redis 服务器中获取对象
+    - set()       将一个 Bean 对象转化成 String 写入到 redis 中
+    - exists()    判断一个 key 是否存在于 redis 中
+    - incr() 
+    - decr() 
+    - delete()    删除指定键对应的缓存
+    ```java
+    @Service
+    public class RedisService {
+    
+        @Autowired
+        JedisPool jedisPool;
+    
+    
+        /**
+         * 1。从 redis 服务器中获取对象，例如User对象，键可以是id，name等
+         */
+        public <T> T get(KeyPrefix prefix, String key, Class<T> clazz) {
+            Jedis jedis = null;
+            try {
+                jedis = jedisPool.getResource();
+                // realKey
+                String realKey = prefix.getPrefix() + key;
+                String str = jedis.get(realKey);
+                T t = stringToBean(str, clazz);
+                return t;
+            } finally {
+                returnToPool(jedis);
+            }
+        }
+    
+    
+        /**
+         * 将 字符串 转化成一个 对象
+         * 作为工具类，rabbitmq 中也会用到
+         */
+        public static <T> T stringToBean(String s, Class<T> clazz) {
+            if (s == null || s.length() <= 0 || clazz == null) {
+                return null;
+            }
+            if (clazz == int.class || clazz == Integer.class) {
+                return (T) Integer.valueOf(s);
+            } else if (clazz == String.class) {
+                return (T) s;
+            } else if (clazz == long.class || clazz == Long.class) {
+                return (T) Long.valueOf(s);
+            } else {    // 其他类型认为它是一个 Bean，利用 fastjson 转换成 String
+                return JSON.toJavaObject(JSON.parseObject(s), clazz);
+            }
+        }
+    
+    
+        /**
+         * 2。使用 fastjson 将一个 Bean 对象转化成 String 写入到 redis 中
+         */
+        public <T> boolean set(KeyPrefix prefix, String key, T value) {
+            Jedis jedis = null;
+            try {
+                jedis = jedisPool.getResource();
+                String str = beanToString(value);
+                if (str == null || str.length() <= 0) {
+                    return false;
+                }
+                // realKey
+                String realKey = prefix.getPrefix() + key;
+                int seconds = prefix.expireSeconds();   // 过期时间
+                if (seconds <= 0) {    // 意味着永不过期
+                    jedis.set(realKey, str);
+                } else {                // 设置了过期时间，存在redis时使用 setex 方法也传递一个过期时间
+                    jedis.setex(realKey, seconds, str);
+                }
+                return true;
+            } finally {
+                returnToPool(jedis);
+            }
+        }
+    
+    
+        /**
+         * 将 对象 转化成 字符串
+         * 作为工具类，rabbitmq 中也会用到
+         */
+        public static <T> String beanToString(T value) {
+            if (value == null) {
+                return null;
+            }
+            Class<?> clazz = value.getClass();
+            if (clazz == int.class || clazz == Integer.class) {
+                return "" + value;
+            } else if (clazz == String.class) {
+                return (String) value;
+            } else if (clazz == long.class || clazz == Long.class) {
+                return "" + value;
+            } else {    // 其他类型认为它是一个 Bean，利用 fastjson 转换成 String：例如 MiaoshaUser 对象
+                return JSON.toJSONString(value);
+            }
+        }
+    
+    
+        // 两个方法的工具方法，释放 Jedis 到 JedisPool
+        private void returnToPool(Jedis jedis) {
+            if (jedis != null) {
+                jedis.close();     // 返回到连接池中
+            }
+        }
+    
+        /**
+         * 3. 判断一个 key 是否存在于 redis 中
+         */
+        public <T> boolean exists(KeyPrefix prefix, String key) {
+            Jedis jedis = null;
+            try {
+                jedis = jedisPool.getResource();
+                // realKey
+                String realKey = prefix.getPrefix() + key;
+                return jedis.exists(realKey);
+            } finally {
+                returnToPool(jedis);
+            }
+        }
+    
+    
+        /**
+         * 4. increase
+         * Increment the number stored at key by one. If the key does not exist or contains a value of a
+         * wrong type, set the key to the value of "0" before to perform the increment operation.
+         */
+        public <T> Long incr(KeyPrefix prefix, String key) {
+            Jedis jedis = null;
+            try {
+                jedis = jedisPool.getResource();
+                // realKey
+                String realKey = prefix.getPrefix() + key;
+                return jedis.incr(realKey);
+            } finally {
+                returnToPool(jedis);
+            }
+        }
+    
+    
+        /**
+         * 5. decrease
+         */
+        public <T> Long decr(KeyPrefix prefix, String key) {
+            Jedis jedis = null;
+            try {
+                jedis = jedisPool.getResource();
+                // realKey
+                String realKey = prefix.getPrefix() + key;
+                return jedis.decr(realKey);
+            } finally {
+                returnToPool(jedis);
+            }
+        }
+    
+        /**
+         * 6. delete 删除指定键对应的缓存
+         */
+        public boolean delete(KeyPrefix prefix, String key) {
+            Jedis jedis = null;
+            try {
+                jedis = jedisPool.getResource();
+                // realKey
+                String realKey = prefix.getPrefix() + key;
+                long ret = jedis.del(realKey);
+                return ret > 0;
+            } finally {
+                returnToPool(jedis);
+            }
+        }
+    
+    }
+    ```
+7. 将键值对存储在 redis 中，将 真正的键 分成 前缀 和 键，前缀用于表示存储的键值对来自哪个模块，比如说商品模块，订单模块等等
+    - KeyPrefix
+    ```java
+    public interface KeyPrefix {
+    
+        int expireSeconds();
+    
+    
+        String getPrefix();
+    }
+    ```
+    - BasePrefix
+    ```java
+    public abstract class BasePrefix implements KeyPrefix {
+    
+        private int expireSeconds;    // redis 存储有效期，单位 s, 在MiaoshaService里让其等于 cookie 有限期
+    
+        private String prefix;
+    
+    
+        // public 构造器，但是抽象类不可用于new一个对象
+        public BasePrefix(String prefix) {
+            this(0, prefix);   // 0表示永不过期
+        }
+    
+        public BasePrefix(int expireSeconds, String prefix) {
+            this.expireSeconds = expireSeconds;
+            this.prefix = prefix;
+        }
+    
+    
+        // 获取两个属性的值的方法
+        @Override
+        public int expireSeconds() {    // 默认0，代表永不过期
+            return expireSeconds;
+        }
+    
+        @Override
+        public String getPrefix() {
+            String className = getClass().getSimpleName();   // 不会像 getName() 方法一样加上包名
+            return className + ":" + prefix;
+        }
+    }
+    ```
+    - GoodsKey 商品模块的前缀
+    ```java
+    public class GoodsKey extends BasePrefix {   
+        // 私有化构造器，控制 页面缓存前缀 对象的数量
+        private GoodsKey(int expireSeconds, String prefix) {
+            super(expireSeconds, prefix);
+        }   
+        // 列出所以 页面缓存前缀 对象
+        // 以下 2 个实例: 默认缓存过期时间 60s
+        public static GoodsKey getGoodsList = new GoodsKey(60, "gl");
+        public static GoodsKey getGoodsDetail = new GoodsKey(60, "gd");
+        public static GoodsKey getMiaoshaGoodsStock = new GoodsKey(0, "gs");   
+    }
+    ```
+    - OrderKey 订单模块的前缀
+    ```java
+    public class OrderKey extends BasePrefix {  
+        // 私有化构造器，控制 订单缓存前缀 对象的数量,永不过期
+        private OrderKey(String prefix) {
+            super(prefix);
+        }   
+        // 列出所以 订单缓存前缀 对象
+        public static OrderKey getMiaoshaOrderByUserIdGoodsId = new OrderKey("MiaoshaOrder");   
+    }
+    ```
+
+
+## 总结2：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
 1. 考虑的问题是否需要用户登录；实现功能如限制5s内只允许发起10次请求；希望将这个非业务代码和业务逻辑分开，使用自定义注解，加了此注解就进行此接口的限流防刷
 2. 自定义一个注解 @AccessLimit
     ```

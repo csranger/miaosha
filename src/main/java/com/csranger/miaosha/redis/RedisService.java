@@ -127,6 +127,8 @@ public class RedisService {
 
     /**
      * 4. increase
+     * Increment the number stored at key by one. If the key does not exist or contains a value of a
+     * wrong type, set the key to the value of "0" before to perform the increment operation.
      */
     public <T> Long incr(KeyPrefix prefix, String key) {
         Jedis jedis = null;
