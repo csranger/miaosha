@@ -154,7 +154,7 @@ public class MiaoshaController implements InitializingBean {
         // 验证码是否正确: miaoshaUser, goodsId 是为了从 redis 中取出答案和 verifyCode 进行对比
         boolean check = miaoshaService.checkVerifyCode(miaoshaUser, goodsId, verifyCode);
         if (!check) {
-            return Result.error(CodeMsg.REQUEST_ILLEGAL);
+            return Result.error(CodeMsg.VERIFY_CODE_ERROE);
         }
 
         // 生成一个随机数作为秒杀请求地址，返回给客户端，客户端才知道秒杀地址请求秒杀 + 将这个随机值暂时缓存在 redis，以确认秒杀地址是否正确
@@ -179,7 +179,7 @@ public class MiaoshaController implements InitializingBean {
         // 验证{path} 键是 miaoshaUser.getId() + "_" + goodsId
         boolean check = miaoshaService.checkPath(miaoshaUser, goodsId, path);
         if (!check) {   // 验证失败，返回请求非法
-            return Result.error(CodeMsg.REQUEST_ILLEGAL);
+            return Result.error(CodeMsg.REQUEST_PATH_ILLEGAL);
         }
 
         // 本地缓存记录商品是否秒杀结束：减少秒杀库存没了后之后的用户依然发起秒杀请求对redis的访问

@@ -1,8 +1,7 @@
 package com.csranger.miaosha.rabbitmq;
 
 import com.csranger.miaosha.redis.RedisService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
@@ -13,9 +12,9 @@ import org.springframework.stereotype.Service;
  * 向指定 队列 或 交换机发送数据
  */
 @Service
+@Slf4j   // lombok 快捷注解
 public class MQSender {
 
-    private static Logger log = LoggerFactory.getLogger(MQSender.class);
 
     // 操作 mq 的帮助类
     @Autowired

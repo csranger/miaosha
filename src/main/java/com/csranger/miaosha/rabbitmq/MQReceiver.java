@@ -7,6 +7,7 @@ import com.csranger.miaosha.redis.RedisService;
 import com.csranger.miaosha.service.GoodsService;
 import com.csranger.miaosha.service.MiaoshaService;
 import com.csranger.miaosha.service.OrderService;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -17,10 +18,8 @@ import org.springframework.stereotype.Service;
  * 从队列中取出数据
  */
 @Service
+@Slf4j
 public class MQReceiver {
-
-    private static Logger log = LoggerFactory.getLogger(MQReceiver.class);
-
     @Autowired
     private GoodsService goodsService;
 
@@ -82,7 +81,7 @@ public class MQReceiver {
         if (miaoshaOrder != null) {
             return;
         }
-        // 生成秒杀订单
+        // 减库存+生成秒杀订单
         miaoshaService.miaosha(miaoshaUser, goodsVO);
     }
 }

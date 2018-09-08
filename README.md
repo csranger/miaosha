@@ -1,3 +1,4 @@
+[TOC]
 # 一、核心技术栈
 1.  spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter + jquery + ajax
 2.  两次 md5 入库
@@ -334,7 +335,7 @@
     }
     ```
 
-## 总结2：分布式 Session 如何实现？
+## 总结2：分布式 Session 如何实现？<a name="2"></a>
 1. 流程：用户登陆，服务端生成一个 "token" 值 uuid 标识这个用户，将 token - user 键值对缓存到 redis 中，同时将token值放入用户请求的响应response里
 客户端在之后的访问中就会携带这个 cookie，服务端根据这个token就可以在redis中知道是哪个用户。注意点就是session的过期时间应根据最后一次访问开始算。
 2. 考虑一个问题：每打开不同页面，发出不同请求，都需要验证token，例如在商品列表页需要验证token，在商品详情页也需要验证 token，代码会重复，也很啰嗦。
@@ -674,7 +675,521 @@
             return Result.success(path);
         }
     ```
+## 总结4：如何在spring-boot使用rabbitmq优先队列？
+1. 需要先安装rabbitmq，添加 spring-boot-starter-amqp 依赖
+2. rabbitmq 在 application.properties 中进行配置
+    ```
+    # 连接到 rabbitmq-server
+    spring.rabbitmq.host=127.0.0.1
+    spring.rabbitmq.port=5672
+    spring.rabbitmq.username=guest
+    spring.rabbitmq.password=guest
+    spring.rabbitmq.virtual-host=/
+    # 消费者数量，加快出队速度
+    spring.rabbitmq.listener.simple.concurrency=10
+    spring.rabbitmq.listener.simple.max-concurrency=10
+    # 链接从队列里取，每次取几个
+    spring.rabbitmq.listener.simple.prefetch=10
+    # 默认 listener 消费者自动启动
+    spring.rabbitmq.listener.simple.auto-startup=true
+    # 消费者消费失败后会重新将数据压入队列
+    spring.rabbitmq.listener.simple.default-requeue-rejected=true
+    # 队列满了，放不进去，启动重试
+    spring.rabbitmq.template.retry.enabled=true
+    # 1s 后重试一次
+    spring.rabbitmq.template.retry.initial-interval=1000ms
+    # 重试最大 3 次
+    spring.rabbitmq.template.retry.max-attempts=3
+    # 重试最大间隔 10s
+    spring.rabbitmq.template.retry.max-interval=10000ms
+    # 如果值为2，第一次等1s，第二次等2s，第三次等4s...
+    spring.rabbitmq.template.retry.multiplier=1
+    ```
+3. 配置一些Bean：消息队列Queue的Bean；交换机 Exchange 的Bean；队列和交换机之间的绑定的Bean
+    ```java
+    /**
+     * 配置一些 Bean：消息队列Queue + 交换机Exchange + 队列和交换机之间的绑定
+     */
+    @Configuration
+    public class MQConfig {
+    
+        // 队列名，交换机名 全部列出
+        public static final String DIRECT_QUEUE = "direct.queue";        // direct 队列名
+    
+        public static final String TOPIC_QUEUE1 = "topic.queue1";        // Topic 队列名
+        public static final String TOPIC_QUEUE2 = "topic.queue2";
+        public static final String TOPIC_EXCHANGE = "topicExchange";     // Topic 交换机名
+    
+        public static final String MIAOSHA_QUEUE = "miaosha.queue";       // 秒杀 queue 队列
+    
+    
+        /**
+         * 1. Direct 模式
+         */
+    
+        /**
+         * Direct 队列
+         */
+        @Bean
+        public Queue directQueue() {
+            return new Queue(DIRECT_QUEUE, true);
+        }
+    
+        /**
+         * 秒杀队列Queue， Direct 模式
+         */
+        @Bean
+        public Queue miaoshaQueue() {
+            return new Queue(MIAOSHA_QUEUE, true);
+        }
+    
+    
+        /**
+         * 2. Topic 模式 交换机Exchange
+         * 先把消息放入 Exchange
+         */
+    
+        /**
+         * Topic 队列
+         */
+        @Bean
+        public Queue topicQueue1() {
+            return new Queue(TOPIC_QUEUE1, true);
+        }
+    
+        @Bean
+        public Queue topicQueue2() {
+            return new Queue(TOPIC_QUEUE2, true);
+        }
+    
+        /**
+         * Topic交换机Exchange
+         */
+        @Bean
+        public TopicExchange topicExchange() {
+            return new TopicExchange(TOPIC_EXCHANGE);
+        }
+    
+        /**
+         * Topic交换机和Queue进行绑定
+         * 向 交换机 传信息时还需一个 routingKey 参数，如果放"topic.key1"值，两个绑定均满足，所以这个信息会放到两个队列中 topicQueue1 和 topicQueue2
+         * 如果放"topic.key2"值，只有topicBinding2绑定满足，所以这个信息只会放入 topicQueue2 队列中
+         */
+        @Bean
+        public Binding topicBinding1() {
+            return BindingBuilder.bind(topicQueue1()).to(topicExchange()).with("topic.key1");
+        }
+    
+        @Bean
+        public Binding topicBinding2() {
+            return BindingBuilder.bind(topicQueue2()).to(topicExchange()).with("topic.#");
+        }   
+    }
+    ```
+    
+4. 创建消息发送者和消息接受者
+    - 消息发送者
+    ```java
+    /**
+     * 向指定 队列 或 交换机发送数据
+     */
+    @Service
+    @Slf4j   // lombok 快捷注解
+    public class MQSender {   
+        // 操作 mq 的帮助类
+        @Autowired
+        private AmqpTemplate amqpTemplate;
+    
+        /**
+         * 1. Direct 模式
+         * 指定向名为 DIRECT_QUEUE 的队列发送数据
+         */
+        public void sendDirect(Object message) {
+            // 对象转化成字符串，之前 redis 中写过 beanToString 方法，利用 fastjson 依赖
+            String msg = RedisService.beanToString(message);
+            log.info("send message: " + message);
+            amqpTemplate.convertAndSend(MQConfig.DIRECT_QUEUE, msg);   // 指定发送到哪个 Queue
+        }
+    
+        /**
+         * 2. Topic 模式 交换机Exchange
+         * 指定向名为 TOPIC_EXCHANGE 的交换机发送数据(因为交换机是和队列绑定在一起的)
+         */
+        public void sendTopic(Object message) {
+            // 对象转化成字符串，之前 redis 中写过 beanToString 方法，利用 fastjson 依赖
+            String msg = RedisService.beanToString(message);
+            log.info("send topic message: " + message);
+            amqpTemplate.convertAndSend(MQConfig.TOPIC_EXCHANGE, "topic.key1", msg + 1);
+            amqpTemplate.convertAndSend(MQConfig.TOPIC_EXCHANGE, "topic.key2", msg + 2);
+        }
+        
+        // 使用 Direct 模式发送秒杀信息
+        public void sendMiaoshaMessage(MiaoshaMessage miaoshaMessage) {
+            // 对象转化成字符串，之前 redis 中写过 beanToString 方法，利用 fastjson 依赖
+            String message = RedisService.beanToString(miaoshaMessage);
+            log.info("send message: " + message);
+            // 放入名为 DIRECT_QUEUE 的队列
+            amqpTemplate.convertAndSend(MQConfig.MIAOSHA_QUEUE, message);
+        }   
+    }
+    ```
+    - 消息接受者：监听指定队列
+    ```java
+    /**
+     * 从队列中取出数据
+     */
+    @Service
+    @Slf4j
+    public class MQReceiver {
+        @Autowired
+        private GoodsService goodsService;
+    
+        @Autowired
+        private OrderService orderService;
+    
+        @Autowired
+        private MiaoshaService miaoshaService;   
+           
+        // 接收 miaosha.queue 队列发送的消息
+        @RabbitListener(queues = MQConfig.MIAOSHA_QUEUE)
+        public void receiveMiaoshaQueue(String message) {
+            log.info("receive miaosha message: " + message);
+            // 4. 秒杀请求出队，生成订单，减少库存：将收到 MiaoshaMessage 消息还原成对象，获取秒杀信息
+            MiaoshaMessage miaoshaMessage = RedisService.stringToBean(message, MiaoshaMessage.class);
+            MiaoshaUser miaoshaUser = miaoshaMessage.getMiaoshaUser();
+            long goodsId = miaoshaMessage.getGoodsId();
+            // 判断库存，这里访问了数据库，这一步很少请求可以进来；没库存就返回，什么都不做
+            log.info("从rabbirmq队列中取出秒杀信息，判断此商品是否还有库存");
+            GoodsVO goodsVO = goodsService.getGoodsVOByGoodsId(goodsId);
+            int stock = goodsVO.getStockCount();      // 注意这里是 getStockCount 不是 getGoodsStock
+            if (stock < 0) {
+                return;
+            }
+            // 有库存判断是否重复秒杀
+            MiaoshaOrder miaoshaOrder = orderService.getMiaoshaOrderByUserIdGoodsId(miaoshaUser.getId(), goodsId);
+            if (miaoshaOrder != null) {
+                return;
+            }
+            // 减库存+生成秒杀订单
+            miaoshaService.miaosha(miaoshaUser, goodsVO);
+        }
+    }
+    ```
 
+    
+## 总结5：redis 预减库存和rabbitmq 异步下单
+1. 秒杀一般实现流程：(1)判断用户是否登陆(2)查goods数据库判断是否有库存(3)查order数据库判断是否已经有订单了，防止重复秒杀(4)减库存+生成订单
+2. redis 预减库存和rabbitmq 异步下单流程：(1)系统初始化时，把商品数量加载到redis 即商品id goodsId 是键，库存数量 stockCount 是值
+(2)收到请求，redis预减库存，库存不足直接返回：会使得后面的请求不再访问数据库，大大减少数据库的压力(3)将秒杀请求放入消息队列中异步下单，请求会
+立即返回"排队中"，这样客户端会立刻收到响应(4)请求出队，减库存+生成订单，生成完订单写入到redis缓存中，这样客户端就可以立即查询到订单了
+(5)客户端不断请求服务端查询是否秒杀成功，这一步与(4)并发进行
+3. MiaoshaController 中处理秒杀请求的方法(1)(2)(3)步骤
+    ```java
+    public class MiaoshaController implements InitializingBean {
+        // redis 预减库存+rabbitmq异步下单 优化秒杀功能
+        // InitializingBean 接口抽象方法：容器启动时，发现实现此接口会回调这个抽象方法
+        @Override
+        public void afterPropertiesSet() throws Exception {
+            // 1. 系统启动时就把商品库存数量加载到 redis:每个秒杀商品id是键，对应商品的库存是值
+            // 同时利用 localOverMap 在本地标记每个商品有库存，可秒杀的
+            List<GoodsVO> goodsVOList = goodsService.listGoodsVO();
+            if (goodsVOList == null) {
+                return;
+            }
+            for (GoodsVO goodsVO : goodsVOList) {
+                redisService.set(GoodsKey.getMiaoshaGoodsStock, "" + goodsVO.getId(), goodsVO.getStockCount());
+                localOverMap.put(goodsVO.getId(), false);   // 商品标记此商品秒杀没有结束
+            }
+    
+        }
+        
+        @RequestMapping(value = "/{path}/do_miaosha", method = RequestMethod.POST)
+        @ResponseBody
+        public Result<Integer> miaosha(MiaoshaUser miaoshaUser,
+                                       @RequestParam("goodsId") long goodsId,
+                                       @PathVariable("path") String path) {
+            logger.info("用户 " + miaoshaUser.getId() + " 正在秒杀，秒杀商品的id是 " + goodsId);
+    
+            if (miaoshaUser == null) {
+                return Result.error(CodeMsg.SESSION_ERROR);
+            }
+            // 验证{path} 键是 miaoshaUser.getId() + "_" + goodsId
+            boolean check = miaoshaService.checkPath(miaoshaUser, goodsId, path);
+            if (!check) {   // 验证失败，返回请求非法
+                return Result.error(CodeMsg.REQUEST_ILLEGAL);
+            }
+    
+            // 本地缓存记录商品是否秒杀结束：减少秒杀库存没了后之后的用户依然发起秒杀请求对redis的访问
+            boolean over = localOverMap.get(goodsId);
+            if (over) {
+                return Result.error(CodeMsg.MIAOSHA_OVER);
+            }
+    
+            // 2. 收到请求，redis 预减库存，库存不足，直接返回，否则继续；返回的是剩下的库存
+            // 可能会出现单个用户同时发起多个请求，减库存了，但是真正生成订单的只有1个，这可以通过验证码防止，另外卖超是不允许的，卖不完是允许的
+            long stock = redisService.decr(GoodsKey.getMiaoshaGoodsStock, "" + goodsId);
+            if (stock < 0) {
+                localOverMap.put(goodsId, true);
+                return Result.error(CodeMsg.MIAOSHA_OVER);
+            }
+            // 判断是否秒杀过了：根据 userId 和 goodsId 查询是否有订单存在
+            MiaoshaOrder miaoshaOrder = orderService.getMiaoshaOrderByUserIdGoodsId(miaoshaUser.getId(), goodsId);
+            if (miaoshaOrder != null) {
+                return Result.error(CodeMsg.REPEATE_MIAOSHA);
+            }
+            // 3. 秒杀请求压入 rabbitmq 队列，立即返回排队中(无阻塞)
+            MiaoshaMessage miaoshaMessage = new MiaoshaMessage();
+            miaoshaMessage.setGoodsId(goodsId);
+            miaoshaMessage.setMiaoshaUser(miaoshaUser);
+            mqSender.sendMiaoshaMessage(miaoshaMessage);
+            return Result.success(0);   // 秒杀请求压入 rabbitmq 队列，立即返回，无阻塞
+        }
+    }
+    ```
+4. 从队列中取出秒杀信息MiaoshaMessage对象，只有两个属性 user 和 goodsId
+    ```java
+    /**
+     * 从队列中取出数据
+     */
+    @Service
+    public class MQReceiver {
+        @Autowired
+        private GoodsService goodsService;
+    
+        @Autowired
+        private OrderService orderService;
+    
+        @Autowired
+        private MiaoshaService miaoshaService;
+        
+        // 接收 miaosha.queue 队列发送的消息
+        @RabbitListener(queues = MQConfig.MIAOSHA_QUEUE)
+        public void receiveMiaoshaQueue(String message) {
+            log.info("receive miaosha message: " + message);
+            // 4. 秒杀请求出队，生成订单，减少库存：将收到 MiaoshaMessage 消息还原成对象，获取秒杀信息
+            MiaoshaMessage miaoshaMessage = RedisService.stringToBean(message, MiaoshaMessage.class);
+            MiaoshaUser miaoshaUser = miaoshaMessage.getMiaoshaUser();
+            long goodsId = miaoshaMessage.getGoodsId();
+            // 判断库存，这里访问了数据库，这一步很少请求可以进来；没库存就返回，什么都不做，这个判断库存是访问数据库来的，不是redis
+            log.info("从rabbirmq队列中取出秒杀信息，判断此商品是否还有库存");
+            GoodsVO goodsVO = goodsService.getGoodsVOByGoodsId(goodsId);
+            int stock = goodsVO.getStockCount();      // 注意这里是 getStockCount 不是 getGoodsStock
+            if (stock < 0) {
+                return;
+            }
+            // 有库存判断是否重复秒杀
+            MiaoshaOrder miaoshaOrder = orderService.getMiaoshaOrderByUserIdGoodsId(miaoshaUser.getId(), goodsId);
+            if (miaoshaOrder != null) {
+                return;
+            }
+            // 减库存+生成秒杀订单
+            miaoshaService.miaosha(miaoshaUser, goodsVO);
+        }
+    }
+    ```
+5. 客户端需要不断请求服务端查看秒杀是否成功
+    - 如何判断是在排队还是秒杀失败？数据库查不到订单原因 1. 秒杀失败 2. 在 rabbitmq 队列中，排队中，还没执行到   如何区分？
+    - ajax 发起里查询秒杀结果的请求，说明秒杀请求已经提交到rabbitmq队列，如果还有此商品的库存，则应该是在排队中，反之秒杀失败
+    - 所以根据秒杀商品是否还有库存来判断是秒杀失败还是排队中
+    ```javascript
+    function getMiaoshaResult() {
+            g_showLoading();
+            $.ajax({
+                url: "/miaosha/result",
+                type: "GET",
+                data: {
+                    goodsId: $("#goodsId").val()
+                },
+                success: function (data) { // data 指 Result.success(result) 对象 orderId:秒杀成功； -1:秒杀失败； 0:排队中，客户端继续轮询
+                    if (data.code == 0) {
+                        var result = data.data;   // data.data 指 result：orderId -1 0
+                        if (result < 0) {
+                            layer.msg("对不起，秒杀失败");
+                        } else if (result == 0) {   // 排队中则需要再次发送请求
+                            setTimeout(function () {    // 200ms后再次请求获取秒杀结果
+                                getMiaoshaResult(goodsId);
+                            }, 200)
+    
+                        } else {
+                            // 两个按钮，及其对应的回调
+                            layer.confirm("恭喜你，秒杀成功！查看订单？", {btn: ["确定", "取消"]},
+                                function () {
+                                    window.location.href = "/order_detail.htm?orderId=" + result;
+                                }, function () {
+                                    layer.closeAll();
+                                });
+                        }
+    
+                    } else {
+                        layer.msg(data.msg);
+                    }
+                },
+                error: function () {
+                    layer.msg("客户端请求有误.")
+                }
+            });
+        }
+    ```
+    - 处理 /miaosha/result 请求 MiaoshaController
+    ```
+    /**
+         * 查询秒杀结果：如果秒杀成功，数据库里有订单记录，则返回订单id
+         * orderId : 秒杀成功
+         * -1      : 秒杀失败
+         * 0       : 排队中，客户端继续轮询
+         */
+        @RequestMapping(value = "/result", method = RequestMethod.GET)
+        @ResponseBody
+        public Result<Long> result(MiaoshaUser miaoshaUser, @RequestParam("goodsId") long goodsId) {
+            logger.info("正在获取秒杀结果订单");
+            if (miaoshaUser == null) {
+                return Result.error(CodeMsg.SESSION_ERROR);
+            }
+            // 查询是否生成里订单:如果秒杀成功，数据库里有订单记录，则返回订单id
+            long result = miaoshaService.getMiaoshaResult(miaoshaUser.getId(), goodsId);
+    
+            return Result.success(result);
+        }
+    ```
+    - MiaoshaService
+    ```
+        /**
+         * orderId : 秒杀成功，数据库中可以查到订单，返回订单id即可
+         * -1      : 秒杀失败，意味着商品秒杀卖完了
+         * 0       : 排队中，客户端继续轮询，再次查询秒杀结果
+         * 注意点：秒杀失败和排队中两种情况下均查不到订单，如何区分开来？
+         * 查不到订单情况下，如果该商品没有库存，说明秒杀失败，如果该商品有库存，说明还在队列中
+         */
+        public long getMiaoshaResult(long userId, long goodsId) {
+            // 从数据库里查是否生成了订单
+            MiaoshaOrder miaoshaOrder = orderService.getMiaoshaOrderByUserIdGoodsId(userId, goodsId);
+            if (miaoshaOrder != null) {   // 生成了订单 秒杀成功
+                return miaoshaOrder.getOrderId();
+            } else {
+                // 数据库查不到订单原因 1. 秒杀失败 2. 在 rabbitmq 队列中，排队中，还没执行到   如何区分？
+                // ajax 发起里查询秒杀结果的请求，说明秒杀请求已经提交到rabbitmq队列，如果还有此商品的库存，则应该是在排队中，反之秒杀失败
+                boolean isOver = getGoodsOver(goodsId);     // true 表示没库存了即秒杀失败
+                if (isOver) {
+                    return -1;
+                } else {
+                    return 0;
+                }
+            }
+        }
+    ```
+
+## 总结5：点击秒杀按钮前，需要图形验证码才可进行秒杀实现
+1. 考虑的问题：添加一个生成验证码的接口；在获取秒杀路径时验证验证码；ScriptEngine 使用
+2.前端商品详情页如果正在秒杀显示验证码图片：
+    ```
+    else if (remainSeconds == 0) {   // 2. 正在进行秒杀：按钮able + 显示验证码
+                $("#buyButton").attr("disabled", false);
+                if (timeout) {
+                    clearTimeout(timeout);
+                }
+                $("#miaoshaTip").html("秒杀进行中");
+    
+                <!-- 如果秒杀已开始，展示验证码图片及验证码输入框 -->
+                <!-- 图片地址是 请求 "/miaosha/verifyCode?goodsId=" + $("#goodsId").val() 返回的图片 -->
+    
+    
+                $("#verifyCodeImg").attr("src", "/miaosha/verifyCodeImage?goodsId=" + $("#goodsId").val());
+                $("#verifyCodeImg").show();
+                $("#verifyCode").show();
+    ```
+3. 服务端处理 /miaosha/verifyCode?goodsId=? 请求
+    ```
+        /**
+         * BufferedImage ，代表着有数学表达式的验证码图片，通过 HttpServletResponse 的 outputStream 返回到客户端
+         */
+        @RequestMapping(value = "/verifyCodeImage", method = RequestMethod.GET)
+        @ResponseBody
+        public Result<String> getMiaoshaVerifyCodeImage(MiaoshaUser miaoshaUser,
+                                                        @RequestParam("goodsId") long goodsId,
+                                                        HttpServletResponse response) {
+            logger.info("正在进行验证码验证");
+            if (miaoshaUser == null) {
+                return Result.error(CodeMsg.SESSION_ERROR);
+            }
+            // 生成验证码图片：将一个数学表达式写在验证码图片上，同时将计算结果缓存到 redis，返回这个图片
+            // miaoshaUser, goodsId是用来作为验证码答案存在 redis 的键
+            // 注意这里使用的是 response 的 outputStream 将这个图片返回到客户端的，所以 return null
+            try {
+                BufferedImage image = miaoshaService.createVerifyCodeImage(miaoshaUser, goodsId);
+                OutputStream out = response.getOutputStream();
+                ImageIO.write(image, "JPEG", out);
+                return null;
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+                return Result.error(CodeMsg.MIAOSHA_FAIL);
+            }
+        }
+    ```
+    - MiaoshaService 生成验证码图片：将一个数学表达式写在验证码图片上，同时将计算结果缓存到 redis，返回这个图片
+    ```
+    // 生成验证码图片：将一个数学表达式写在验证码图片上，同时将计算结果缓存到 redis，返回这个图片
+    public BufferedImage createVerifyCodeImage(MiaoshaUser miaoshaUser, long goodsId) {
+            if (miaoshaUser == null || goodsId <= 0) {
+                return null;
+            }
+            int width = 90;
+            int height = 32;
+            // 创建 BufferedImage 对象：内存里的图像
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            Graphics graphics = image.getGraphics();    // Graphics 看成画笔
+            // 设定背景颜色：以 0xDCDCDC 颜色填充
+            graphics.setColor(new Color(0xDCDCDC));
+            graphics.fillRect(0, 0, width, height);
+            // 以黑色画个矩形框
+            graphics.setColor(Color.black);
+            graphics.drawRect(0, 0, width - 1, height - 1);
+            // 50 个随机干扰点
+            Random rdm = new Random();
+            for (int i = 0; i < 50; i++) {
+                int x = rdm.nextInt(width);
+                int y = rdm.nextInt(height);
+                graphics.drawOval(x, y, 0, 0);
+            }
+            // 生成 数学公式 的字符串
+            String verifyCode = createVerifyCode(rdm);
+            graphics.setColor(new Color(0, 100, 0));                 // 画笔颜色
+            graphics.setFont(new Font("Candara", Font.BOLD, 24));  // 画笔字体
+            graphics.drawString(verifyCode, 8, 24);
+            graphics.dispose();
+    
+            // 数学公式 的字符串的计算结果缓存到 redis
+            int answer = calc(verifyCode);
+            redisService.set(MiaoshaKey.getMiaoshaVerifyCode, miaoshaUser.getId() + "_" + goodsId, answer);
+    
+            // 输出图片
+            return image;
+        }
+    
+        // 生成 数学公式 的字符串
+        private String createVerifyCode(Random rdm) {
+            int number1 = rdm.nextInt(10);    // [0, 10) 之间的随机数
+            int number2 = rdm.nextInt(10);
+            int number3 = rdm.nextInt(10);
+            char ops1 = ops[rdm.nextInt(3)];   // 没有除法是为了防止除以0异常，简化代码
+            char ops2 = ops[rdm.nextInt(3)];
+            return "" + number1 + ops1 + number2 + ops2 + number3;
+        }
+    
+        // 计算数学表达式字符串的结果
+        public int calc(String exp) {
+            try {
+                ScriptEngineManager manager = new ScriptEngineManager();
+                ScriptEngine engine = manager.getEngineByName("JavaScript");
+                return (Integer) engine.eval(exp);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+                return 0;
+            }
+        }
+    ```
+4. 点击秒杀按钮首先验证验证码是否正确，这个请求进行了限流(总结3)，验证码正确就会生成秒杀地址给客户端，客户端利用ajax请求执行秒杀，服务端会
+先验证地址是否正确，redis 预减库存是否还有库存，查询订单验证是否秒杀过了，然后将秒杀信息放入队列异步下单；从队列取出秒杀信息减库存+生成订单。 
+    
 
 # 四、开发过程
 ## 1. 项目环境搭建
