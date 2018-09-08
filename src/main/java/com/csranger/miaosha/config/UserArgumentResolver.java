@@ -24,7 +24,9 @@ public class UserArgumentResolver implements HandlerMethodArgumentResolver {
     @Autowired
     private MiaoshaUserService miaoshaUserService;
 
-    // resolveArgument 方法返回 MiaoshaUser 对象
+    /**
+     * resolver 支持 MiaoshaUser 参数
+     */
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
         Class<?> clazz = parameter.getParameterType();    // 获取参数类型
@@ -32,7 +34,9 @@ public class UserArgumentResolver implements HandlerMethodArgumentResolver {
     }
 
 
-    // 参数类型为 MiaoshaUser.class 的才会做以下处理
+    /**
+     * 生成 MiaoshaUser 对象作为 controller 方法里的参数
+     */
     @Override
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                   NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {

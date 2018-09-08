@@ -334,8 +334,173 @@
     }
     ```
 
+## 总结2：分布式 Session 如何实现？
+1. 流程：用户登陆，服务端生成一个 "token" 值 uuid 标识这个用户，将 token - user 键值对缓存到 redis 中，同时将token值放入用户请求的响应response里
+客户端在之后的访问中就会携带这个 cookie，服务端根据这个token就可以在redis中知道是哪个用户。注意点就是session的过期时间应根据最后一次访问开始算。
+2. 考虑一个问题：每打开不同页面，发出不同请求，都需要验证token，例如在商品列表页需要验证token，在商品详情页也需要验证 token，代码会重复，也很啰嗦。
+希望在controller层中的方法里有个 user 参数，和 HttpServletRequest request, Model model 参数一样，这样使用 if (user == null) 来判断用户是否登陆，而不是
+使用request里的 cookie 到 redis 里查user是否存在。
+3. 用户登录时需要生成 uuid 作为 "token" 的值，将 token-user 存到redis，同时将token写入response中的cookie里
+    - 处理 login 请求
+    ```java
+    @Controller
+    @RequestMapping(value = "/login")
+    public class LoginController {   
+        @Autowired
+        private MiaoshaUserService miaoshaUserService;
+        @RequestMapping(value = "/do_login")
+        @ResponseBody
+        public Result<String> doLogin(HttpServletResponse response, @Valid LoginVO loginVO) {
+            String token = miaoshaUserService.login(response, loginVO);    // 生成 uuid 作为 "token" 的值，将 token-user 存到redis，同时将token写入response中的cookie里
+            return Result.success(token);
+        }
+    
+    }
+    ```
+    - login 方法：将 token-user 存到redis，同时将token写入response中的cookie里
+    ```
+    public String login(HttpServletResponse response, LoginVO loginVO) {
+            if (loginVO == null) {
+                throw new GlobalException(CodeMsg.SERVER_ERROR);
+            }
+            // 1.判断手机号是否存在于数据库中
+            String password = loginVO.getPassword();
+            String mobile = loginVO.getMobile();
+            MiaoshaUser miaoshaUser = getById(Long.parseLong(mobile));     // 用户信息
+            if (miaoshaUser == null) {
+                throw new GlobalException(CodeMsg.MOBILE_NOT_EXIST);
+            }
+            // 2. 如果手机号存在于数据库中,进行密码匹配
+            String dbPass = miaoshaUser.getPassword();
+            String dbSalt = miaoshaUser.getSalt();
+            String pass = MD5Util.fromPassToDBPass(password, dbSalt);
+            // 2.1 如果密码不匹配，登陆失败
+            if (!dbPass.equals(pass)) {
+                throw new GlobalException(CodeMsg.PASSWORD_ERROR);
+            }
+            // 2.2 密码匹配，意味着登陆成功
+    
+            // 生成 cookie/实现 session 功能：登陆成功之后，给这个用户生成一个类似于 sessionId 的变量 token 来标识这个用户 -> 写到
+            // cookie 当中传递给客户端 -> [ 客户端在随后的访问当中都在 cookie 上传这个 token -> 服务端拿到这个 token 之后
+            // 就根据这个 token 取到用户对应的 sesession 信息 ] 后面步骤浏览器来做
+            String token = UUIDUtil.uuid();     // 用户登录后将此用户 token 记住不需要没打开一个页面都生成一个新的 token
+            addCookie(response, token, miaoshaUser);
+            logger.info("生成 token 放入 cookie，写到 response 中发送给客户端");
+    
+            return token;
+    
+        }
+    
+    
+        /**
+         * 登陆成功之后，给这个用户生成一个 token 来标识这个用户
+         * (1) 将 token-user 缓存到 redis
+         * (2) 同时将token写到 cookie 当中传递给客户端response
+         */
+        private void addCookie(HttpServletResponse response, String token, MiaoshaUser miaoshaUser) {
+            // 1 将 token-user 再次写到 redis 缓存中，前缀已经设定了存储到 redis 中的过期时间：相当于刷新了 过期时间
+            redisService.set(MiaoshaUserKey.token, token, miaoshaUser);
+    
+            // 2 token 放入 cookie
+            Cookie cookie = new Cookie(COOKIE_NAME_TOKEN, token);
+            cookie.setMaxAge(MiaoshaUserKey.token.expireSeconds());      // cookie 的有效期设置为 MiaoshaUserKey.token.expireSeconds() 即让其等于 redis 保存有效期期
+            cookie.setPath("/");
+    
+            // 3 写到 response ，所以参数里加上 HttpServletResponse,service中方法不可直接加上HttpServletResponse；需要在Controller中加上，类似于 ModelMap map
+            response.addCookie(cookie);
+        }
+    ```
+    - 生成 uuid 的工具类
+    ```java
+    public class UUIDUtil {
+        // 输出类似于 cf9e0032d7cc4adda988c44fdb997478
+        // UUID : 唯一的机器生成的标识
+        public static String uuid() {
+            return UUID.randomUUID().toString().replace("-", "");     // 默认生成的 UUID 带有 - ，去掉
+        }
+    }
+    ```
+4. 打开其他页面，request 里会自带 token，希望在controller层中的方法里有个 user 参数，和 HttpServletRequest request, Model model 参数
+一样，这样使用 if (user == null) 来判断用户是否登陆
+    - 新建 UserArgumentResolver 类实现 controller 方法里带上 user 这个参数
+    - controller 方法里带上 user 这个参数在 resolveArgument 方法里利用 request 的 生成 cookie 在redis里找到这个对象，找不到意味着没登陆
+    ```java
+    @Service
+    public class UserArgumentResolver implements HandlerMethodArgumentResolver {
+    
+        @Autowired
+        private MiaoshaUserService miaoshaUserService;
+    
+        /**
+         * resolver 支持 MiaoshaUser 参数
+         */
+        @Override
+        public boolean supportsParameter(MethodParameter parameter) {
+            Class<?> clazz = parameter.getParameterType();    // 获取参数类型
+            return clazz == MiaoshaUser.class;
+        }
+    
+    
+        /**
+         * 生成 MiaoshaUser 对象作为 controller 方法里的参数
+         */
+        @Override
+        public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+                                      NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {
+    
+            HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
+            HttpServletResponse response = webRequest.getNativeResponse(HttpServletResponse.class);
+    
+            // 每打开一个页面都需要先获取请求信息 cookie 里的 token，然后从 redis 根据 token 获取到 user 信息
+            // 如果cookie里没有token(直接打开页面没有登陆的情况)，getByToken 方法从redis中去不成对象，返回 null
+            String paramToken = request.getParameter(MiaoshaUserService.COOKIE_NAME_TOKEN);      // "token"值 被放在请求参数中获取
+            String cookieToken = getCookieValue(request, MiaoshaUserService.COOKIE_NAME_TOKEN);  // "token"值 被放在 cookie 中获取
+            if (StringUtils.isBlank(paramToken) && StringUtils.isBlank(cookieToken)) {
+                return null;
+            }
+            String token = StringUtils.isBlank(paramToken) ? cookieToken : paramToken;
+            return miaoshaUserService.getByToken(response, token);     // 从 redis 中利用 "token" 对应的值 UUID 取出 MiaoshaUser 对象
+        }
+    
+        /**
+         * 从用户请求中的 cookie 中取出 token 变量的值(UUID)
+         * 从 request 中取出 "token" 对应的值 UUID
+         */
+        private String getCookieValue(HttpServletRequest request, String cookieName) {
+            Cookie[] cookies = request.getCookies();
+            if (cookies == null || cookies.length <= 0) {
+                return null;
+            }
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals(cookieName)) {
+                    return cookie.getValue();
+                }
+            }
+            return null;
+        }
+    }
+    ```   
+5. 需要将这个 UserArgumentResolver 注册到系统上，注册到 WebConfig 类上
+    ```java
+    // WebMvcConfigurerAdapter 过时，这里使用里 WebMvcConfigurer 接口
+    @Configuration
+    public class WebConfig implements WebMvcConfigurer {
+    
+        @Autowired
+        private UserArgumentResolver userArgumentResolver;   
+    
+        /**
+         * UserArgumentResolver 注册到系统
+         */
+        @Override
+        public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+            resolvers.add(userArgumentResolver);
+        }
+    }
+    ```
+6. 使用：这样就可以在 controller 里方法参数里加上 MiaoshaUser user 参数了，通过 if (user == null) 判断用户是否已经登陆
 
-## 总结2：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
+## 总结3：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
 1. 考虑的问题是否需要用户登录；实现功能如限制5s内只允许发起10次请求；希望将这个非业务代码和业务逻辑分开，使用自定义注解，加了此注解就进行此接口的限流防刷
 2. 自定义一个注解 @AccessLimit
     ```
@@ -482,6 +647,32 @@
             registry.addInterceptor(accessInterceptor);
         }
     }
+    ```
+5. 将 @AccessLimit 注解到想进行限流的接口上即可使用
+    - MiaoshaController 上 /miaosha/path 请求上加上此注解实现5s内最多进行5次请求，且需要用户登录
+    ```
+        @AccessLimit(seconds = 5, maxCounts = 5, needLogin = true)
+        @RequestMapping(value = "/path", method = RequestMethod.GET)
+        @ResponseBody
+        public Result<String> getMiaoshaPath(MiaoshaUser miaoshaUser,
+                                             @RequestParam("goodsId") long goodsId,
+                                             @RequestParam("verifyCode") int verifyCode) {
+            logger.info("正在获取秒杀地址");
+            if (miaoshaUser == null) {
+                return Result.error(CodeMsg.SESSION_ERROR);
+            }
+    
+            // 验证码是否正确: miaoshaUser, goodsId 是为了从 redis 中取出答案和 verifyCode 进行对比
+            boolean check = miaoshaService.checkVerifyCode(miaoshaUser, goodsId, verifyCode);
+            if (!check) {
+                return Result.error(CodeMsg.REQUEST_ILLEGAL);
+            }
+    
+            // 生成一个随机数作为秒杀请求地址，返回给客户端，客户端才知道秒杀地址请求秒杀 + 将这个随机值暂时缓存在 redis，以确认秒杀地址是否正确
+            String path = miaoshaService.createPath(miaoshaUser, goodsId);
+    
+            return Result.success(path);
+        }
     ```
 
 

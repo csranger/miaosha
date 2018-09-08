@@ -23,7 +23,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = Exception.class)     // 表明拦截所有异常
     public Result<String> exceptionHandler(HttpServletRequest request, Exception e) {   // 方法的参数和controller一样，HttpServletRequest和Exception均是系统传过来的
-
+        e.printStackTrace();  // 如果是未知异常，打印异常信息，用于调试
         // 如果是
         if (e instanceof GlobalException) {
             GlobalException ge = (GlobalException) e;

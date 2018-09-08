@@ -86,7 +86,9 @@ public class MiaoshaUserService {
 
 
     /**
-     * 登陆成功之后，给这个用户生成一个 token 来标识这个用户, 将 token-user 缓存到 redis -> 写到 cookie 当中传递给客户端
+     * 登陆成功之后，给这个用户生成一个 token 来标识这个用户
+     * (1) 将 token-user 缓存到 redis
+     * (2) 同时将token写到 cookie 当中传递给客户端response
      */
     private void addCookie(HttpServletResponse response, String token, MiaoshaUser miaoshaUser) {
         // 1 将 token-user 再次写到 redis 缓存中，前缀已经设定了存储到 redis 中的过期时间：相当于刷新了 过期时间
