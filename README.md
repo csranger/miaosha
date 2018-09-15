@@ -1,6 +1,6 @@
 [TOC]
 # 一、核心技术栈
-1.  spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + nginx + jmeter + jquery + ajax
+1.  spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + jmeter + jquery + ajax
 2.  两次 md5 入库
 3.  jsr303 参数校验
 4.  全局异常处理：@ControllerAdvice + @ExceptionHandler
@@ -13,7 +13,7 @@
 
 
 # 二、如何使用
-1. 新建 miaosha 数据库与数据表并修改 application.properties 中的数据库密码
+1. 新建 miaosha 数据库与数据表(见/sql目录下sql文件)并修改 application.properties 中的数据库密码
 2. 配置好 redis 并启动 redis-server /usr/local/etc/redis.conf 和 mysql
 3. 启动 rabbitmq-server
 4. 运行 MiaoshaApplication 浏览器输入 127.0.0.1:8080/login/to_login 进行登录 [12345678900 123456]
@@ -1802,7 +1802,64 @@ CREATE TABLE `miaosha_user` (
 ### 6.3 接口限流防刷(自定义注解+拦截器)
     - 见重点小结：如何实现接口限流防刷，防止用户使用程序短时间内多次请求某个接口，例如短时间大量进行秒杀请求？
 
+## 7. 服务器优化
+### 7.1 Tomcat 优化
+0. 一些Tomcat参数可能会影响性能，在文档里查看然后可根据实际情况进行配置
+1. 内存优化 catalina
+    - 本机的Tomcat安装在 ～/Library/Tomcat 目录 ${tomcat}=～/Library/Tomcat
+    - 位置 ${tomcat}/bin/catalina.sh 添加一下语句
+    ```
+    # Tomcat 内存优化:最小内存最大内存配为2g；当出现内存溢出时把内存影像dump出来放到$CATALINA_HOME/logs/heap.dump
+    JAVA_OPTS="-server -Xms2048M -Xmx2048M -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$CATALINA_HOME/logs/heap.dump"
+    ```
+2. 并发优化
+    - 参考 ${tomcat}/webapps/docs/config/http.html 文档
+    - 几个参数了解
+    - maxConnections：The maximum number of connections that the server will accept and process at any given time. 
+    When this number has been reached, the server will accept, but not process。For NIO and NIO2 the default is 10000. 
+    For APR/native, the default is 8192.
+    - acceptCount：The maximum queue length for incoming connection requests when all possible request processing threads are in use.
+    Any requests received when the queue is full will be refused. The default value is 100.
+    - maxThreads：工作线程
+    - minSpareThreads：最小空闲连接
+    - 对以上参数进行配置，配置位置 ${tomcat}/conf/server.xml
+    ```
+    <!--maxConnections以下是Tomcat的并发优化，默认值及意义见${tomcat}/webapps/docs/config/http.html 文档-->
+    <Connector port="8080" protocol="HTTP/1.1"
+                   connectionTimeout="20000"
+                   redirectPort="8443" 
+                   maxConnections="300"
+                   acceptCount="200"
+                   maxThreads="400"
+                   minSoareThreads="200"
+    />
+    ```
+    
+3. 其他优化
+    - 参考 ${tomcat}/webapps/docs/config/host.html 文档和 ${tomcat}/webapps/docs/config/http.html 文档
+    - 几个参数了解
+    - autoDeploy：(host.html) This flag value indicates if Tomcat should check periodically for new or updated web applications 
+    while Tomcat is running. If true, Tomcat periodically checks the appBase and xmlBase directories and deploys any
+    new web applications 
+    - enableLookups： (http.html) Set to true if you want calls to request.getRemoteHost() to perform DNS lookups in order to 
+    return the actual host name of the remote client.     enableLookups：false
+    - reloadable：(context.html) Set to true if you want Catalina to monitor classes in /WEB-INF/classes/ and /WEB-INF/lib for changes, 
+    and automatically reload the web application if a change is detected. 
+    
+4.  APR 优化
+    - Tomcat支持许多 connector 最原始的是IO，阻塞式的；然后非阻塞的NIO； IO -> NIO -> NIO2 -> AIO -> APR 
 
+
+### 7.2 Nginx 优化:如何配置nginx
+1. 两个Tomcat + 一个nginx 负载均衡
+2. 安装Nginx，配置nginx。我这里使用homebrew安装的，配置文件在/usr/local/etc/nginx/nginx.conf  
+    - 常见命令
+    ```
+    启动Nginx: nginx
+    快速停止或关闭Nginx：nginx -s stop
+    正常停止或关闭Nginx：nginx -s quit
+    配置文件修改重装载命令：nginx -s reload
+    查看进程 ps -ef | grep nginx
 
 
 
