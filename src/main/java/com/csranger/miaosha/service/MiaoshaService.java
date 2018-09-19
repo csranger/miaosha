@@ -186,7 +186,7 @@ public class MiaoshaService {
         System.out.println(ans);
     }
 
-    // #6 匹配验证码，并删掉缓存在 redis 中的值
+    // #6 匹配验证码，并删掉缓存在 redis 中的值:验证码结果的键是userId 和 goodsId 组合，
     public boolean checkVerifyCode(MiaoshaUser miaoshaUser, long goodsId, int verifyCode) {
         if (miaoshaUser == null || goodsId <= 0) {
             return false;

@@ -1,4 +1,3 @@
-[TOC]
 # 一、核心技术栈
 1.  spring boot + mybatis + druid + redis + thymeleaf + rabbitmq + jmeter + jquery + ajax
 2.  两次 md5 入库
@@ -18,9 +17,22 @@
 3. 启动 rabbitmq-server
 4. 运行 MiaoshaApplication 浏览器输入 127.0.0.1:8080/login/to_login 进行登录 [12345678900 123456]
 
+# 三、项目演示
+1. 登陆页面
+![登陆页面](./src/main/resources/static/img/登陆页面.png "登陆页面")
+2. 商品列表页
+![商品列表页](./src/main/resources/static/img/商品列表页.png "商品列表页")
+3. 商品详情页
+![商品详情页](./src/main/resources/static/img/商品详情页.png "商品详情页")
+4. 订单详情页
+![订单详情页](./src/main/resources/static/img/订单详情页.png "订单详情页")
+5. 验证码错误
+![验证码错误](./src/main/resources/static/img/验证码错误.png "验证码错误")
+5. 接口限流防刷
+![接口限流防刷](./src/main/resources/static/img/接口限流防刷.png "接口限流防刷")
 
 
-# 三、重点小结
+# 四、重点小结
 ## 总结1：如何集成redis用于存储缓存？
 1. 这里没使用RedisTemplate，而是使用原生的 jedis 并自己实现 set get 等功能，序列化使用 fastjson，使用 fastjson 把 java 对象转
 换成 json 字符串，存储到 redis server 中；需要系统已安装redis
@@ -675,7 +687,7 @@
             return Result.success(path);
         }
     ```
-## 总结4：如何在spring-boot使用rabbitmq优先队列？
+## 总结4：如何在spring-boot使用 rabbitmq 消息队列？
 1. 需要先安装rabbitmq，添加 spring-boot-starter-amqp 依赖
 2. rabbitmq 在 application.properties 中进行配置
     ```
@@ -1191,7 +1203,7 @@
 先验证地址是否正确，redis 预减库存是否还有库存，查询订单验证是否秒杀过了，然后将秒杀信息放入队列异步下单；从队列取出秒杀信息减库存+生成订单。 
     
 
-# 四、开发过程
+# 五、开发过程
 ## 1. 项目环境搭建
 ### 1.1 输出结果封装
 - 输出结果使用Result.java类封装，为了是代码优雅使用类CodeMsg进一步封装各种异常
@@ -1729,7 +1741,7 @@ CREATE TABLE `miaosha_user` (
     - 注意(4-1)减库存是可能失败的，因为在 MiaoshaController 里如果只有 2 个库存，但是同时有10个请求，此时判断库存是有库存的，所以这10个请求都会进
     入秒杀步骤，所以减库存成功的话再生成订单
 2. 思路：redis 预减库存使得减少对数据库的访问，rabbitmq 使得原先同步下单改成了异步下单
-    - (1)系统初始化，把 商品id-商品库存数量 加载到 redis
+    - (1)系统初始化，把 商品id-商品库存数量 加载到 redis：看 public class MiaoshaController implements InitializingBean 类
     - (2)收到秒杀请求，redis 预减库存，库存不足，直接返回，否则继续
     - (3)秒杀请求压入 rabbitmq 队列，立即返回排队中(无阻塞)，这样客户端就会立马收到响应:所以(4)(5)是并发进行的
     - (4)服务端秒杀请求出队，生成订单，会把订单写到缓存里，减少库存

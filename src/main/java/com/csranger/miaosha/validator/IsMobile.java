@@ -5,13 +5,14 @@ import javax.validation.Payload;
 import javax.validation.constraints.NotNull;
 import java.lang.annotation.*;
 
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
 /**
  * 仿照 @NotNull 自定义一个验证器：验证该属性是手机号
  */
 
 @Target({ElementType.METHOD, ElementType.FIELD, ElementType.ANNOTATION_TYPE, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
+@Retention(RUNTIME)
 @Constraint(validatedBy = {IsMobileValidator.class})     // 遇到 @IsMobile 注解时会调用 IsMobileValidator 校验器来进行校验
 public @interface IsMobile {
 

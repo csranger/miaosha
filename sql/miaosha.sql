@@ -121,6 +121,34 @@ CREATE TABLE `miaosha_user` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='用户表';
 
+LOCK TABLES `miaosha_user` WRITE;
+/*!40000 ALTER TABLE `miaosha_user` DISABLE KEYS */;
+
+INSERT INTO `miaosha_user` (`id`, `nickname`, `password`, `salt`, `head`, `register_date`, `last_login_date`, `login_count`)
+VALUES
+	(12345678900,'csranger0','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678901,'csranger1','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678902,'csranger2','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678903,'csranger3','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678904,'csranger4','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678905,'csranger5','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678906,'csranger6','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678907,'csranger7','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678908,'csranger8','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(12345678909,'csranger9','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,NULL,NULL,0),
+	(13000000000,'user0','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000001,'user1','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000002,'user2','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000003,'user3','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000004,'user4','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000005,'user5','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000006,'user6','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000000007,'user7','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1),
+	(13000004999,'user4999','b7797cce01b4b131b433b6acf4add449','1a2b3c4d',NULL,'2018-07-26 16:53:27',NULL,1);
+
+/*!40000 ALTER TABLE `miaosha_user` ENABLE KEYS */;
+UNLOCK TABLES;
+
 
 
 # Dump of table order_info
